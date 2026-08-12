@@ -1,15 +1,22 @@
 <!doctype html>
 <html lang="zh-Hant"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b1a12"><title>YaKyoLife UX 2.0.7 Stable</title>
+<meta name="theme-color" content="#0b1a12"><meta name="author" content="toto">
+<title>模擬棒球人生爽版</title>
 <style>html,body{height:100%;margin:0;background:#0b1a12;color:#ece7d6;font-family:system-ui,"Noto Sans TC",sans-serif}#boot{min-height:100vh;display:grid;place-items:center;text-align:center}h1{color:#ffc95c}p{color:#93ab9c}</style>
-</head><body><div id="boot"><div><div style="font-size:58px">⚾</div><h1>YaKyoLife UX 2.0.7</h1><p id="s">正在載入穩定版…</p></div></div>
+</head><body><div id="boot"><div><div style="font-size:58px">⚾</div><h1>模擬棒球人生爽版</h1><p id="s">正在載入遊戲…</p></div></div>
 <script>
 (async()=>{const s=document.getElementById('s');try{
-const r=await fetch('https://raw.githubusercontent.com/LeoGGcat/yakyulife/refs/heads/main/index.html?v=207&ts='+Date.now(),{cache:'no-store'});
+const r=await fetch('https://raw.githubusercontent.com/LeoGGcat/yakyulife/refs/heads/main/index.html?v=208&ts='+Date.now(),{cache:'no-store'});
 if(!r.ok)throw Error('HTTP '+r.status);let g=await r.text();
-g=g.replace('<title>YaKyoLife - 棒球人生模擬器</title>','<title>YaKyoLife UX 2.0.7 Stable</title>');
-g=g.replace('</body>','<script src="./direct.js?v=207"><'+'/script></body>');
+const newTitle='模擬棒球人生爽版';
+g=g.replaceAll('YaKyoLife - 棒球人生模擬器',newTitle);
+g=g.replace('<head>','<head><meta name="author" content="toto">');
+const oldLogo='<h1 id="logo-tap">YaKyoLife<br><em>棒球人生模擬器</em></h1>';
+const credit='<h1 id="logo-tap"><em>模擬棒球人生爽版</em></h1><div class="sub" style="line-height:1.9;margin-bottom:12px">作者：<b style="color:var(--amber)">toto</b><br>致敬原作｜Produced by <a href="https://www.threads.com/@mr.themost" target="_blank" rel="noopener noreferrer" style="color:var(--amber);text-decoration:underline">最先生 Mr.TheMost</a></div>';
+if(g.includes(oldLogo)) g=g.replace(oldLogo,credit);
+else g=g.replace('<div id="ver-badge"',credit+'<div id="ver-badge"');
+g=g.replace('</body>','<script src="./direct.js?v=208"><'+'/script></body>');
 document.open();document.write(g);document.close();
 }catch(e){s.textContent='載入失敗：'+e.message;}})();
 </script></body></html>
