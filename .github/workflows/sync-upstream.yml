@@ -1,0 +1,48 @@
+name: Sync upstream and build 爽版
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build_souban.py'
+      - '.github/workflows/sync-upstream.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-yakyulife-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Fetch latest upstream
+        run: |
+          rm -rf _upstream
+          git clone --depth 1 https://github.com/LeoGGcat/yakyulife.git _upstream
+
+      - name: Build independent Pages copy and apply 爽版 settings
+        run: python3 scripts/build_souban.py _upstream docs
+
+      - name: Commit only when upstream/build changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A docs
+          if git diff --cached --quiet; then
+            echo "No site changes."
+          else
+            UPSTREAM_SHA=$(cat docs/.upstream-sha)
+            git commit -m "Sync upstream ${UPSTREAM_SHA:0:7} and rebuild 爽版"
+            git push
+          fi
