@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/build_souban.py'
+      - 'scripts/fix_souban_text.py'
       - '.github/workflows/sync-upstream.yml'
 
 permissions:
@@ -32,7 +33,9 @@ jobs:
           git clone --depth 1 https://github.com/LeoGGcat/yakyulife.git _upstream
 
       - name: Build independent Pages copy and apply 爽版 settings
-        run: python3 scripts/build_souban.py _upstream docs
+        run: |
+          python3 scripts/build_souban.py _upstream docs
+          python3 scripts/fix_souban_text.py
 
       - name: Commit only when upstream/build changed
         run: |
