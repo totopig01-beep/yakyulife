@@ -17,9 +17,9 @@ export function drawEvents(n,done){
     const od=evOdds(); /* 與實際擲骰同源 */
     const after=()=>{ board(1); drawEvents(n-1,done); };
     choose(`事件｜${ev.n} — 你要怎麼應對？`,[
-      {t:'全力一搏',warn:true,s:`成功率 ${od.bold}%｜${S.traits.clutch?'成功 +4／失敗僅 −2':'加成／減益幅度最大（±3）'}`,f:()=>{resolveEvent(ev,'bold',after);}},
-      {t:'照常執行',main:true,s:`成功率 ${od.norm}%｜標準幅度（±2）`,f:()=>{resolveEvent(ev,'norm',after);}},
-      {t:'保守應對',s:`成功率 ${od.safe}%｜加成／減益幅度最小（±1）`,f:()=>{resolveEvent(ev,'safe',after);}}]);
+      {t:'全力一搏',warn:true,s:`成功率 ${od.bold}%｜固定成功、最大加成（+3）`,f:()=>{resolveEvent(ev,'bold',after);}},
+      {t:'照常執行',main:true,s:`成功率 ${od.norm}%｜固定成功、標準加成（+2）`,f:()=>{resolveEvent(ev,'norm',after);}},
+      {t:'保守應對',s:`成功率 ${od.safe}%｜固定成功、最小加成（+1）`,f:()=>{resolveEvent(ev,'safe',after);}}]);
   }}]);
 }
 export function resolveEvent(ev,mode,done){
