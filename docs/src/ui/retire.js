@@ -101,9 +101,9 @@ export function rpProData(proLogs){ /* team segments: a new block whenever the o
     }
     txt.push(r.sal==null?'—':fmtMoney(r.sal));
     /* level cell carries the season's role: fielding position for batters (一軍·CF),
-       SP/MR/CL for pitchers (一軍·先發). A forced-DH season reads as DH, matching how
-       dposYears/awards count it. */
-    const dp=isP?(r.role?roleN(r.role):''):(s._dh?'DH':(r.p||''));
+       SP/MR/CL for pitchers (一軍·先發). r.p is already the position actually played,
+       so a forced-DH season reads as DH here exactly as it does in the in-game table. */
+    const dp=isP?(r.role?roleN(r.role):''):(r.p||'');
     cur.rows.push({y:r.y,age:r.age,lvl:o.lvl+(dp?'·'+dp:''),minor:o.minor,
       inj:!!r.inj,txt,sv:s.SV||0,era,hr:s.HR||0,ops});
   });

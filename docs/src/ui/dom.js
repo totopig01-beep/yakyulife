@@ -11,7 +11,6 @@ import {playerType, ovr} from '../engine/ability.js';
 
 export const $=id=>document.getElementById(id);
 export let _curYearBody=null; /* 當前年度的內容容器 */
-const MAX_YEARS=8;         /* DOM 最多保留幾個年度區塊 */
 export function logTarget(){ return _curYearBody || $('log'); }
 export function scrollBottom(){ /* iOS Safari 於 iframe 內平滑滾動易觸發白畫面,改用同步滾動+rAF */
   try{ requestAnimationFrame(function(){ window.scrollTo(0, document.body.scrollHeight); }); }
@@ -68,7 +67,22 @@ export function card(cls,title,html){ const d=document.createElement('div'); d.c
   d.innerHTML=(title?`<h4>${title}</h4>`:'')+html; logTarget().appendChild(d);
   renderTraits(); /* settlement-time trait unlocks emit a card without a board() refresh */
   scrollBottom(); }
-export function divider(t){ /* 每個 divider 開啟新的年度摺疊區塊 */ const log=$('log'); const blocks=log.querySelectorAll('.yr-block'); /* 替剛結束的「上一年」加上下拉箭頭標記，但保留展開（不加上 collapsed） */ const prev = blocks[blocks.length - 1]; if(prev){ const h = prev.querySelector('.yr-head'); if(h && prev.querySelector('.yr-body').children.length) h.classList.add('has-body'); } /* 找到「前年」（倒數第二個區塊）並將其摺疊起來 */ const prevPrev = blocks[blocks.length - 2]; if(prevPrev){ prevPrev.classList.add('collapsed'); } /* 建新區塊 */ const block=document.createElement('div'); block.className='yr-block'; const head=document.createElement('div'); head.className='yr-head'; head.textContent=t; const body=document.createElement('div'); body.className='yr-body'; head.onclick=()=>block.classList.toggle('collapsed'); block.appendChild(head); block.appendChild(body); log.appendChild(block); _curYearBody=body; /* 超過上限:移除最舊的年度區塊(釋放 DOM) */ const newBlocks=log.querySelectorAll('.yr-block'); if(newBlocks.length>MAX_YEARS){ for(let i=0;i<newBlocks.length-MAX_YEARS;i++)newBlocks[i].remove(); } }
+export function divider(t){ /* 每個 divider 開啟新的年度摺疊區塊 */ const log=$('log'); const blocks=log.querySelectorAll('.yr-block'); /* 替剛結束的「上一年」加上下拉箭頭標記，但保留展開（不加上 collapsed） */ const prev = blocks[blocks.length - 1]; if(prev){ const h = prev.querySelector('.yr-head'); if(h && prev.querySelector('.yr-body').children.length) h.classList.add('has-body'); } /* 找到「前年」（倒數第二個區塊）並將其摺疊起來 */ const prevPrev = blocks[blocks.length - 2]; if(prevPrev){ prevPrev.classList.add('collapsed'); } /* 建新區塊 */ const block=document.createElement('div'); block.className='yr-block'; const head=document.createElement('div'); head.className='yr-head'; head.textContent=t; const body=document.createElement('div'); body.className='yr-body'; head.onclick=()=>block.classList.toggle('collapsed'); block.appendChild(head); block.appendChild(body); log.appendChild(block); _curYearBody=body;
+  /* Every year stays in the DOM: the career timeline is only useful if a player can
+     reopen an early season, and dropping the oldest blocks made those years dead
+     (TL[].el went stale, so tlScrollTo() silently did nothing).
+     Pruning was never the saving it looked like. Measured on a 33-season career,
+     iPhone-sized viewport, 6x CPU throttle, four identical 603-action runs per build:
+       - live DOM nodes after GC: 4,912-5,013 pruned vs 4,817-4,940 kept, the same
+         within run-to-run noise, because TL[].el pinned every removed block anyway
+         (a constant 955 detached nodes / 29 KB in the pruning build, zero here)
+       - past years are already display:none via .yr-block.collapsed .yr-body,
+         so they cost no layout and no paint
+       - per-action latency: mean 6.5-7.0 -> 7.0-7.3 ms; the p50 (6.0-6.2 vs 6.1-6.4)
+         and p95 (12.4-14.0 vs 13.0-14.7) ranges overlap
+     About half a millisecond per action buys back the whole career log. Do not
+     reintroduce a cap without re-measuring: the old one removed content that was
+     already free. */ }
 export function actClear(){ const a=$('act'); a.innerHTML=''; a.classList.remove('collapsed');
   const t=$('act-toggle'); if(t)t.style.display='none';
   /* every actClear() site is a point where an allocation has ended or is restarting,

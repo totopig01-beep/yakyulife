@@ -339,8 +339,12 @@ export function proSeason(){
   st.payD=seasonSalaryRating(st,seasonLv,S.pos==='P'?S.role:S.dpos);
   S.lastPayD=st.payD;
   const bucket=bucketOf(S.lv); accStat(bucket,st);
+  /* The position actually played this season, not the registered one: a forced-DH year
+     (the dhThisYear branch above) already counts as DH for defensive runs, dposYears,
+     salary rating and award eligibility, so every display reads it from here too. */
+  const seasonDp=st._dh?'DH':(S.dpos||'');
   if(S.seasonFactor===0){ card('bad','球季數據','（傷缺，本季無出賽紀錄）'); }
-  else card('','球季數據',`<span class="tag">${S.teamName()}${S.dpos?'｜'+S.dpos:''}</span><div class="statline">${statLine(st)}</div>`);
+  else card('','球季數據',`<span class="tag">${S.teamName()}${seasonDp?'｜'+seasonDp:''}</span><div class="statline">${statLine(st)}</div>`);
   /* 低潮年 / 生涯年 敘述卡 */
   if(st.form===-1){
     card('bad','巨大的低潮',`身體狀況很好，但是成績一直打不出來，遇到了巨大的低潮。孤獨、無助，就像是溺水一樣，只能隨意抓取孤木。`);
@@ -349,7 +353,7 @@ export function proSeason(){
     else card('gold','生涯年','投來的每顆球看起來都像籃球一樣大，你看得到縫線、球的轉動，就和駭客任務的子彈一樣慢了下來，而你每一顆擊中甜蜜點的球，都往全壘打牆奔去。');
   }
   const isInj = S.seasonFactor <= 0.45; /* 判斷是否為大傷報廢年 */
-  S.log.push({y:S.year,age:S.age,tm:S.teamName(),lv:seasonLv,p:S.dpos||'',role:S.pos==='P'?S.role:null,line:S.seasonFactor===0?'傷缺全季':statLine(st), inj: isInj, st: st});
+  S.log.push({y:S.year,age:S.age,tm:S.teamName(),lv:seasonLv,p:seasonDp,role:S.pos==='P'?S.role:null,line:S.seasonFactor===0?'傷缺全季':statLine(st), inj: isInj, st: st});
   /* 鐵人累計 */
   const healthy=S.seasonFactor>=0.95&&(S.pos==='P'?(isSP()?st.IP>=120:st.G>=42):st.G>=LV[S.lv].g*0.8);
   if(healthy){ S.ironStreak++;

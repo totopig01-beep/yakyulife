@@ -4,7 +4,7 @@ import {ABL, POS_AB} from '../data/abilities.js';
 import {LV, PATHS, teamNick} from '../data/teams.js';
 import {AMA_ANNUAL} from '../data/economy.js';
 import {card, choose, board, divider} from '../ui/dom.js';
-import {tlNote, tlPush} from '../ui/timeline.js';
+import {tlNote, tlPush, tlRestage} from '../ui/timeline.js';
 import {allocUI} from '../ui/alloc.js';
 import {addAb, ovr, dposReview} from '../engine/ability.js';
 import {rollInjury, tjCap} from '../engine/injury.js';
@@ -93,12 +93,15 @@ export function phasePre(){
     const reqMiLB = 50 + Math.floor(agePenalty / 2);  // 門檻：18歲50 -> 22歲52
     const bonusNPB = Math.max(100, 800 - agePenalty * 180);   // 日職簽約金逐年大減
     const bonusMiLB = Math.max(150, 1500 - agePenalty * 350); // 美職簽約金逐年大減
+    /* the season was already pushed as a college year; tlRestage() moves it to the new
+       league so a short overseas stint still shows up as its own era on the career card */
+    const goPro=()=>{ tlRestage(); afterAsk(); };
     if(o>=reqNPB)opts.push({t:'洽談旅日合約',s:`休學挑戰日職｜大齡影響簽約金`,f:()=>{
       S.stage='PRO'; S.team=''; S.svc=0; S.faElig=false;
-      pickOfferUI('日職球團報價','NPB',makeOffers('NPB',2,bonusNPB,2,3,'NPB2',null),afterAsk);}});
+      pickOfferUI('日職球團報價','NPB',makeOffers('NPB',2,bonusNPB,2,3,'NPB2',null),goPro);}});
     if(o>=reqMiLB)opts.push({t:'洽談旅美合約',s:`休學挑戰小聯盟｜大齡影響簽約金`,f:()=>{
       S.stage='PRO'; S.team=''; S.svc=0; S.faElig=false;
-      pickOfferUI('大聯盟球團報價','MiLB',makeOffers('MiLB',2,bonusMiLB,3,4,o>=55?'A1':'R',null),afterAsk);}});
+      pickOfferUI('大聯盟球團報價','MiLB',makeOffers('MiLB',2,bonusMiLB,3,4,o>=55?'A1':'R',null),goPro);}});
     choose(`大${['一','二','三','四'][S.stageYr-1]}季前 · 升學與職棒的十字路口`,opts);
     return;
   }
@@ -108,7 +111,7 @@ export function phasePre(){
     if(S.org!=='CPBL'&&ovr()>=LV.CPBL2.min){
       oldOpts.push({t:'放棄合約，落葉歸根',s:'狀態不再，仍想把最後的球打給家鄉看',f:()=>{
         card('good','落葉歸根',`狀態早已不在巔峰。但家鄉球隊仍然向你招手——他們要的不是現在的數據，是你這個名字陪著大家走過的那些年。你決定放棄合約，回家，把最後的球打給臺灣的球迷看。`);
-        signTo('CPBL','CPBL1'); afterAsk();
+        signTo('CPBL','CPBL1'); tlRestage(); afterAsk(); /* spring move: this season is already CPBL */
       }});
     }
     oldOpts.push({t:'召開引退記者會',warn:true,s:'結束選手生涯',f:()=>{buyoutRemaining(0.7,true);daibaFarewell(()=>endGame('功成身退，於 '+S.year+' 年宣布引退。'));}});
