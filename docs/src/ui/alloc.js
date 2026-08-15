@@ -1,4 +1,4 @@
-import {$, actClear, actToggleSync, board} from './dom.js';
+import {$, actClear, actToggleSync, board, scrollBottom} from './dom.js';
 import {S} from '../core/state.js';
 import {ABL, POS_AB} from '../data/abilities.js';
 import {abCost, normalizeAbCarry, addAb} from '../engine/ability.js';
@@ -37,6 +37,10 @@ export function allocPlace(){
     allocFullClose();
   }
   ALLOC.render();
+  /* the sticky panel just grew (or moved between panel and overlay), which adds the same
+     amount to scrollHeight; without this the log's tail is left hidden behind the panel —
+     every other event path re-pins the bottom (card()/choose()), this one must too */
+  scrollBottom();
 }
 /* 加點介面：mode {dice:[..]} 或 {pool:n} */
 export function allocUI(mode,label,done){

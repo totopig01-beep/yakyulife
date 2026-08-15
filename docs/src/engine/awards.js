@@ -17,13 +17,25 @@ export function awardP(value,hardLow,autoWin,base=25,lower=false){
 }
 export function rookieAwardGuaranteed(honors,year,leagueName){
   const sameLeagueAwards=honors.filter(x=>x.startsWith(`${year} ${leagueName}`));
-  const elite=sameLeagueAwards.some(x=>/年度MVP|年度最佳投手/.test(x));
+  const elite=sameLeagueAwards.some(x=>/年度MVP|最佳投手|賽揚/.test(x));
   const titleCount=sameLeagueAwards.filter(x=>/(三振王|救援王|中繼王|打擊王|全壘打王|盜壘王|打點王|上壘王)$/.test(x)).length;
   return elite||titleCount>=2;
 }
+export function pitcherAwardName(bucket){
+  const leagueName={CPBL:'中職',NPB:'日職',MLB:'大聯盟'}[bucket];
+  return `${leagueName}年度最佳投手`;
+}
+export function relieverAceChance(st,role){
+  const era=Number(st&&st.era);
+  if(role!=='CL'||!Number.isFinite(era)||st.G<50||era>2.20||(st.SV||0)<35)return 0;
+  return clamp(
+    3+Math.max(0,2.20-era)*8+Math.max(0,(st.SV||0)-35)*0.4+Math.max(0,(st.d||0)-10)*0.8,
+    3,18
+  );
+}
 export function awards(bucket,st){
   if(!LV[S.lv].top||S.seasonFactor===0)return;
-  const y=S.year,h=S.honors,lgN={CPBL:'中職',NPB:'日職',MLB:'大聯盟'}[bucket];
+  const y=S.year,h=S.honors,lgN={CPBL:'中職',NPB:'日職',MLB:'大聯盟'}[bucket],aceName=pitcherAwardName(bucket);
 
   /* 符合 simSeason 數學邏輯的門檻表 [必不得獎下限, 必得獎上限] */
   /* 比率數據(ERA/AVG/OBP)與非場次連動數據(SV/HLD/SB)三個聯盟統一標準 */
@@ -70,7 +82,11 @@ export function awards(bucket,st){
       let p=awardP(st.era,th.era[0],th.era[1],30,true);
       if(p>0&&p<100)p=clamp(p+(st.IP-th.g)*0.35,30,95);
       if(p===100&&st.IP<150)p=95;
-      if(chance(p)) h.push(`${y} ${lgN}年度最佳投手`);
+      if(chance(p)) h.push(`${y} ${aceName}`);
+    }else{
+      /* 神級終結者可低機率角逐年度最佳投手；門檻比後援 MVP 更明確，機率上限仍僅 18%。 */
+      const p=relieverAceChance(st,S.role);
+      if(p>0&&chance(p))h.push(`${y} ${aceName}`);
     }
     if(S.role==='CL'){
       const p=awardP(st.SV,th.sv[0],th.sv[1],28);

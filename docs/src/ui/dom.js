@@ -1,12 +1,15 @@
 import {S} from '../core/state.js';
-import {renderTraits} from './traits.js';
+import {APP_VER} from '../config.js';
+import {renderTraits, traitName} from './traits.js';
 import {clearAlloc, allocFullClose} from './alloc.js';
 import {themeModal, applyBigText, applyMobileUI} from './prefs.js';
 import {DPN, POSN} from '../data/abilities.js';
-import {TEAM_COLOR} from '../data/teams.js';
-import {playerName} from '../core/state.js';
+import {TEAM_COLOR, LV} from '../data/teams.js';
+import {TRAIT_KEYS, TRAIT_FX} from '../data/traits.js';
+import {playerName, stageLabel} from '../core/state.js';
 import {salParts, fmtMoney} from '../engine/contract.js';
-import {roleN} from '../engine/season.js';
+import {roleN, fmtIP, slgOf} from '../engine/season.js';
+import {honorGroups, yearRanges} from '../engine/career.js';
 import {playerType, ovr} from '../engine/ability.js';
 
 export const $=id=>document.getElementById(id);
@@ -33,11 +36,19 @@ export function teamChip(hex){
 /* ---------- 主題化對話框(純呈現層) ---------- */
 export function modalOpen(html){ const m=$('modal'); if(!m)return; $('modal-box').innerHTML=html; m.classList.add('show'); }
 export function modalClose(){ const m=$('modal'); if(m)m.classList.remove('show'); }
+/* the wordmark tracks the theme (applyTheme rewrites every .wm-img src), so read the source
+   off one that is already in the document rather than hardcoding a file here */
+export function brandHTML(){
+  const wm=document.querySelector('.wm-img');
+  const src=wm?wm.getAttribute('src'):'assets/wordmark-cream.png';
+  return `<img class="wm-img" src="${src}" alt="YaKyoLife"><span class="sub">棒球人生模擬器</span>`+
+    `<span class="ver">${APP_VER}</span>`;
+}
 export function menuModal(){
   const wide=matchMedia('(min-width:921px)').matches;
   const mob=document.body.classList.contains('mobile-ui');
   const big=document.body.classList.contains('big-text');
-  modalOpen(`<h3>選單</h3>
+  modalOpen(`<div class="md-brand">${brandHTML()}</div>
     <button class="btn" id="md-theme" style="text-align:center">切換佈景主題</button>
     <button class="btn" id="md-big" style="text-align:center">${big?'切回標準字級':'改用大字級'}</button>
     ${wide?`<button class="btn" id="md-ui" style="text-align:center">${mob?'切回電腦版介面':'改用手機版介面'}</button>`:''}
@@ -92,8 +103,15 @@ export function actClear(){ const a=$('act'); a.innerHTML=''; a.classList.remove
 export function actToggleSync(){
   const a=$('act'), t=$('act-toggle'); if(!t)return;
   const has=a.innerHTML.trim()!=='' && a.style.display!=='none';
-  t.style.display=has?'block':'none';
-  t.textContent=a.classList.contains('collapsed')?'⌃ 展開選項':'⌄ 收合選項';
+  t.style.display=has?'flex':'none';
+  /* same chevron as the top bar's hint; it points up while the options are folded away,
+     which is the direction they come back from at the bottom of the screen */
+  const collapsed=a.classList.contains('collapsed');
+  if(!t.querySelector('.chev'))t.innerHTML='<i class="chev"></i>';
+  t.querySelector('.chev').classList.toggle('up',collapsed);
+  t.setAttribute('aria-expanded',String(!collapsed));
+  const lbl=collapsed?'展開選項':'收合選項';
+  t.setAttribute('aria-label',lbl); t.title=lbl;
 }
 export function choose(title,opts){
   actClear(); const a=$('act');
@@ -105,27 +123,49 @@ export function choose(title,opts){
     b.onclick=()=>{ actClear(); o.f(); }; a.appendChild(b); });
   actToggleSync(); scrollBottom();
 }
+/* 所屬區塊(1A 定稿)。小標依階段在「所屬學校／所屬球隊」間切換(手機只留「所屬」，見 CSS)；
+   隊名在職業階段沿用原本的隊色圓點＋白底標籤，非職業維持琥珀色文字；層級徽章文案就是
+   stageLabel()，站上該條路的頂端(學生年級／中職一軍／日職一軍／大聯盟)填實心金底，
+   還沒上去的(業餘、二軍、小聯盟)只描邊。 */
+const LV_SHORT={CPBL2:'二軍',NPB2:'二軍',R:'新人'}; /* 手機版:聯盟由隊名交代,徽章只留層級 */
+function affiliationHTML(){
+  const student=(S.stage==='HS'||S.stage==='U');
+  const proTeam=(S.stage==='PRO'&&S.orgTeam)?S.orgTeam:'';
+  const lvOk=S.stage!=='PRO'||!!(S.lv&&LV[S.lv]);
+  const badge=lvOk?stageLabel():'';
+  const top=student?true:S.stage==='AMA'?false:!!(S.lv&&LV[S.lv]&&LV[S.lv].top);
+  /* 手機版寫法:三個聯盟的頂級層級不掛徽章,二軍就寫二軍,美國新人聯盟寫新人,1A~3A 不變。
+     學生年級與業餘成棒兩邊都寫全稱——沒有隊名可以交代那是高幾。 */
+  const short=(S.stage==='PRO'&&S.lv&&LV[S.lv])
+    ? (LV[S.lv].top?'':(LV_SHORT[S.lv]||LV[S.lv].n)) : badge;
+  const tc=proTeam&&TEAM_COLOR[proTeam];
+  let name;
+  if(tc){ /* 判斷顏色是否為白色，避免白底白字 */
+    const isWhite=(tc.toLowerCase()==='#ffffff'||tc.toLowerCase()==='#fff');
+    name=`<span class="bt-dot" style="background:${isWhite?'#cccccc':tc}"></span>`+
+      `<span class="bt-name chip" style="color:${isWhite?'#000000':tc}">${proTeam}</span>`;
+  } else name=`<span class="bt-name plain">${proTeam||S.team||''}</span>`;
+  let bhtml='';
+  if(badge){ const cls=`bt-badge ${top?'top':'sub'}${short?'':' nomob'}`;
+    const txt=short===badge?badge:`<i class="lw">${badge}</i><i class="lc">${short}</i>`;
+    bhtml=`<span class="${cls}">${txt}</span>`; }
+  return `<span class="bt-lbl"><i>所屬</i><em>${student?'學校':'球隊'}</em></span>`+
+    `<span class="bt-row">${name}${bhtml}</span>`;
+}
+/* 守位晶片(實底)＋稱號晶片(金描邊) */
+function chipsHTML(){
+  const pos=(S.dpos?DPN[S.dpos]:POSN[S.pos])+(S.role?'・'+roleN(S.role):'');
+  const typ=playerType()+(S.traits.genius?' ★':'');
+  return `<span class="bd-chip pos">${pos}</span><span class="bd-chip typ">${typ}</span>`;
+}
 export function board(phase){
   renderTraits();
-  $('bd-name').innerHTML=`${S.name}<small>#${S.jersey}</small>`;
-  $('bd-role').textContent=`${S.dpos?DPN[S.dpos]:POSN[S.pos]}${S.role?'・'+roleN(S.role):''}・${playerType()}${S.traits.genius?' ★':''}`;
-  let t;
-  if(S.stage==='HS')t=S.team+'（高'+['一','二','三'][S.stageYr-1]+'）';
-  else if(S.stage==='U')t=S.team+'（大'+['一','二','三','四'][S.stageYr-1]+'）';
-  else if(S.stage==='AMA')t=S.team+'（業餘）';
-  else t=S.teamName();
-  { const tc = (S.orgTeam && TEAM_COLOR[S.orgTeam]) || 'var(--amber)';
-    /* 判斷顏色是否為白色，避免白底白字 */
-    const isWhite = (tc.toLowerCase() === '#ffffff' || tc.toLowerCase() === '#fff');
-    
-    /* 只有進入職業且有設定代表色時，才加上白底標籤樣式 */
-    const isProColored = (S.stage === 'PRO' && TEAM_COLOR[S.orgTeam]);
-    const txtColor = isProColored ? (isWhite ? '#000000' : tc) : 'var(--amber)';
-    const bgStyle = isProColored ? 'background:#ffffff; padding:2px 8px; border-radius:6px; box-shadow:0 2px 4px rgba(0,0,0,0.4);' : '';
-    
-    const dot = isProColored ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${isWhite ? '#cccccc' : tc};margin-right:6px;vertical-align:middle;box-shadow:0 0 2px rgba(0,0,0,0.2);"></span>` : '';
-    
-    $('bd-team').innerHTML = dot + `<span style="color:${txtColor}; ${bgStyle} font-weight:900;">${t}</span>`; }
+  $('bd-jersey').textContent=S.jersey;
+  $('bd-name').textContent=S.name;
+  $('bd-role').innerHTML=chipsHTML();
+  { const t=$('bd-team'); t.innerHTML=affiliationHTML();
+    /* the compact bar drops the pill around a pro club: its white label is its own frame */
+    t.classList.toggle('pro',!!(S.stage==='PRO'&&S.orgTeam&&TEAM_COLOR[S.orgTeam])); }
   $('bd-age').textContent=S.age; $('bd-year').textContent=S.year;
   $('bd-ovr').textContent=ovr(); if(S.pos==='P'){const el=$('bd-tj'); if(el)el.textContent='';}
   { const sal=Math.round(S.salary),sp=salParts(sal),salEl=$('bd-sal'); salEl.textContent=sp.v;
@@ -133,4 +173,135 @@ export function board(phase){
     const lb=$('bd-sal-lbl'); if(lb)lb.textContent=`生涯薪(${sp.u})`;
     const tip=$('bd-sal-tip'); if(tip)tip.textContent=fmtMoney(sal)+' 台幣'; }
   [0,1,2].forEach(i=>$('lp'+i).classList.toggle('on',i===phase));
+  detailSync();
+}
+/* the compact bar is a CSS state, so ask the layout rather than re-deriving the breakpoint */
+function isCompact(){ const h=$('bd-hint'); return !!h && getComputedStyle(h).display!=='none'; }
+/* ---------- 「詳情」展開面板 ----------
+   Four blocks over data the game already keeps: S.honors / S.ct + S.salary / S.traits +
+   S.removed / S.log. Desktop lays all four out at once, mobile switches them with the tab
+   strip (the active tab lives in #bd-detail[data-tab] so a board() refresh keeps it).
+   逐年薪資 is deliberately absent: nothing in the save records a per-year figure, and
+   inventing one from the current contract would be wrong for every earlier season. */
+const F2=v=>v==null?'-':v.toFixed(2);
+const F3=v=>v==null?'-':v.toFixed(3).replace(/^0/,'');
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const salRow=(k,v)=>`<div class="bd-sr"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+function secHonors(){
+  /* honorGroups() is ranked by prestige, which is what the settlement card wants; here the
+     year is the leading column, so read it chronologically instead */
+  const first=g=>{ const ys=g.yrs.filter(Boolean).map(Number); return ys.length?Math.min(...ys):Infinity; };
+  const gs=honorGroups().sort((a,b)=>first(a)-first(b));
+  const body=gs.length?gs.map(g=>{
+    const rs=yearRanges(g.yrs), n=g.yrs.length;
+    return `<div class="bd-hr"><span class="y">${rs.join('、')}</span>`+
+      `<span class="n">${g.awd}${n>1?` <b>×${n}</b>`:''}</span></div>`;
+  }).join(''):'<div class="bd-none">還沒有拿過任何獎項。</div>';
+  return `<div class="bd-sec sec-h"><div class="bd-sh">目前成就</div>${body}</div>`;
+}
+function secSalary(){
+  const ct=S.ct;
+  /* annualSchedule[0] is the year actually being paid when a contract has a step schedule */
+  const annual=ct?((ct.annualSchedule&&ct.annualSchedule.length)?ct.annualSchedule[0]:ct.annual):null;
+  const contract=(ct&&Number.isFinite(annual))
+    ?`${fmtMoney(Math.round(annual))} × 剩 ${Math.max(0,ct.yrs||0)} 年`:'—';
+  const tenure=(S.stage==='PRO'&&S.orgTeam)?`${S.teamYears||0} 年（${S.orgTeam}）`:'—';
+  return `<div class="bd-sec sec-s"><div class="bd-sh">薪資</div>`+
+    salRow('現行合約',contract)+salRow('球隊年資',tenure)+
+    `<div class="bd-sr tot"><span class="k">生涯累計</span>`+
+    `<span class="v">${fmtMoney(Math.round(S.salary))}</span></div></div>`;
+}
+function secTraits(){
+  const out=[];
+  /* the effect text is carried on title as well as inline: the wide layout shows names only
+     (see the .bd-tc .f rule) and surfaces the effect on hover, the way #trait-side already does */
+  [...TRAIT_KEYS.pos,...TRAIT_KEYS.neg].forEach(k=>{ if(!S.traits||!S.traits[k])return;
+    const fx=TRAIT_FX[k]||'';
+    out.push(`<div class="bd-tc${TRAIT_KEYS.neg.includes(k)?' neg':''}" title="${esc(fx)}">`+
+      `<span class="n">${traitName(k)}</span><span class="f">${fx}</span></div>`); });
+  (S.removed||[]).forEach(l=>out.push(
+    `<div class="bd-tc off" title="已解除"><span class="n">${l}</span><span class="f">已解除</span></div>`));
+  return `<div class="bd-sec sec-t"><div class="bd-sh">隱藏屬性</div>`+
+    (out.length?`<div class="bd-tw">${out.join('')}</div>`
+               :'<div class="bd-none">還沒有覺醒任何隱藏屬性。</div>')+`</div>`;
+}
+function secLog(){
+  const L=S.log||[], isP=S.pos==='P';
+  /* 業餘年份沒有 st(逐項數據)，只有文字事蹟——這就是兩張表的分界 */
+  const ama=L.filter(r=>!r.st), pro=L.filter(r=>r.st);
+  const hd=isP?['G','IP','W-L','SV','SO','ERA']:['G','PA','AVG','HR','RBI','OPS'];
+  const drop=isP?[1,0,0,1,1,0]:[1,1,0,0,1,0]; /* 手機留 3 欄:投手 IP/W-L/ERA、野手 AVG/HR/OPS */
+  const cells=v=>v.map((t,i)=>`<span class="n${drop[i]?' opt':''}">${t}</span>`).join('');
+  let h=`<div class="bd-sec sec-y"><div class="bd-sh">生涯逐年成績</div>`;
+  if(!L.length)h+='<div class="bd-none">還沒有完整打過一個球季。</div>';
+  if(ama.length){ h+='<div class="bd-yg">業餘</div>';
+    ama.forEach(r=>{ h+=`<div class="bd-yr${r.inj?' inj':''}"><span class="y">${r.y}</span>`+
+      `<span class="a opt">${r.age}</span><span class="tm">${esc(r.tm)}</span>`+
+      `<span class="ln">${esc(r.line)}</span></div>`; }); }
+  if(pro.length){ h+='<div class="bd-yg">職業</div>'+
+      `<div class="bd-yr hd"><span class="y">年</span><span class="a opt">齡</span>`+
+      `<span class="tm">球隊</span>${cells(hd)}</div>`;
+    pro.forEach(r=>{ const s=r.st; let v;
+      if(isP){ const era=s.IP>0?s.ER*9/s.IP:null;
+        v=[s.G,fmtIP(s.IP),`${s.W}-${s.L}`,s.SV||0,s.SO,F2(era)];
+      } else { const obp=s.PA>0?(s.H+s.BB)/s.PA:null, slg=s.AB>0?slgOf(s):null;
+        v=[s.G,s.PA,F3(s.AB>0?s.H/s.AB:null),s.HR,s.RBI,F3((obp!=null&&slg!=null)?obp+slg:null)]; }
+      /* the compact row drops BB/WHIP/SB/DEF; the full season line stays on hover */
+      h+=`<div class="bd-yr${r.inj?' inj':''}" title="${esc(r.line)}"><span class="y">${r.y}</span>`+
+        `<span class="a opt">${r.age}</span><span class="tm">${esc(r.tm)}</span>${cells(v)}</div>`; }); }
+  return h+'</div>';
+}
+const DTABS=[['h','成就'],['s','薪資'],['t','屬性'],['y','逐年']];
+export function detailSync(){
+  const bd=$('board'),d=$('bd-detail');
+  if(!S||!bd||!d||!bd.classList.contains('detail-open'))return;
+  const cur=d.dataset.tab||'h', sc=d.scrollTop;
+  const prevY=d.querySelector('.sec-y'), yTop=prevY?prevY.scrollTop:null;
+  /* the phone bar drops the lamp row for the year strip and has no room for the 稱號 chip;
+     both come back on the panel's first line */
+  const lamps=$('lamps'), on=lamps&&lamps.querySelector('.lamp.on');
+  const idrow=isCompact()
+    ? `<div class="bd-idrow">${on?`<span class="bd-ph"><i></i>${on.textContent}</span>`:''}`+
+      `${chipsHTML()}</div>`
+    : '';
+  d.innerHTML=idrow+'<div class="bd-tabs">'+DTABS.map(([k,n])=>
+      `<button type="button" class="bd-tab${k===cur?' on':''}" data-t="${k}">${n}</button>`).join('')+'</div>'+
+    secHonors()+secSalary()+secTraits()+secLog()+
+    (isCompact()?`<div class="bd-mark">${brandHTML()}</div>`:'');
+  /* stopPropagation, not just the #bd-detail guard on the board listener: this handler
+     replaces the panel's innerHTML, so by the time the click bubbles up the button is
+     detached and closest() can no longer tell the board the click came from inside */
+  d.querySelectorAll('.bd-tab').forEach(b=>b.onclick=e=>{
+    e.stopPropagation(); d.dataset.tab=b.dataset.t; detailSync(); });
+  d.scrollTop=sc;
+  /* a board() refresh must not yank the 逐年 list back to the player's rookie year */
+  const y=d.querySelector('.sec-y'); if(y&&yTop!=null)y.scrollTop=yTop;
+}
+function detailToggle(){
+  const bd=$('board'),btn=$('bd-more'),d=$('bd-detail'); if(!bd||!btn||!d)return;
+  const open=!bd.classList.contains('detail-open');
+  bd.classList.toggle('detail-open',open);
+  btn.setAttribute('aria-expanded',String(open));
+  if(!open){ d.innerHTML=''; return; } /* collapsed keeps no stale DOM to re-measure */
+  detailSync();
+  /* open on the season just played; no-op where 逐年 is not the element that scrolls */
+  const y=d.querySelector('.sec-y'); if(y)y.scrollTop=y.scrollHeight;
+}
+if(typeof document!=='undefined'){
+  const more=document.getElementById('bd-more');
+  if(more)more.onclick=e=>{ e.stopPropagation(); detailToggle(); };
+  /* Compact bar: the whole thing is the toggle (8B). The hamburger, the panel itself and the
+     year strip are live controls inside it, so a click that started there is not a bar tap. */
+  const bd=document.getElementById('board');
+  if(bd)bd.addEventListener('click',function(e){
+    if(!isCompact())return;
+    const t=e.target;
+    /* a target that is no longer in the document was removed by its own handler, which means
+       something inside the bar already answered this click */
+    if(t.isConnected===false)return;
+    /* 生涯薪 cell has its own tap (reveal the exact amount), the hamburger opens the menu,
+       the panel and the year strip are live controls: none of them are a tap on the bar */
+    if(t.closest&&t.closest('#btn-menu,#bd-detail,#tl-strip,#bd-sal-cell'))return;
+    detailToggle();
+  });
 }

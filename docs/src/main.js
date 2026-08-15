@@ -3,7 +3,7 @@ import {S, setS, newState} from './core/state.js';
 import {APP_VER} from './config.js';
 import {POSN} from './data/abilities.js';
 import {LV} from './data/teams.js';
-import {$, card, modalClose} from './ui/dom.js';
+import {$, card, modalClose, actToggleSync} from './ui/dom.js';
 import {THEME_KEY, BIG_KEY, applyTheme, applyMobileUI, applyBigText, updDispSum} from './ui/prefs.js';
 import {allocFullClose} from './ui/alloc.js';
 import {TL, resetTL, renderTimeline, tlScrollTo} from './ui/timeline.js';
@@ -37,8 +37,9 @@ import {startYear} from './flow/phases.js';
   },{passive:false});
 })();
 (function(){ const t=document.getElementById('act-toggle');
-  if(t)t.onclick=()=>{ document.getElementById('act').classList.toggle('collapsed');
-    t.textContent=document.getElementById('act').classList.contains('collapsed')?'⌃ 展開選項':'⌄ 收合選項'; };
+  /* actToggleSync owns the button's contents (the shared chevron): writing the label here
+     would replace the icon element it just built */
+  if(t)t.onclick=()=>{ document.getElementById('act').classList.toggle('collapsed'); actToggleSync(); };
 })();
 (function(){ /* theme init + timeline click delegation */
   try{ applyMobileUI(localStorage.getItem('yakyu-mobile-ui')==='1'); }catch(e){}
@@ -163,7 +164,8 @@ $('btn-start').onclick=()=>{
   }catch(e){}
 })();
 (function(){ const vb=document.getElementById('ver-badge'); if(vb)vb.textContent=APP_VER;
-  const tv=document.getElementById('tl-ver'); if(tv)tv.textContent=APP_VER; })();
+  const tv=document.getElementById('tl-ver'); if(tv)tv.textContent=APP_VER;
+  const lv=document.getElementById('lm-ver'); if(lv)lv.textContent=APP_VER; })();
 /* touch has no hover: tap the salary cell to reveal the full amount, tap again to close.
    Never dismisses on a timer — the user decides when it goes away. */
 (function(){ const cell=document.getElementById('bd-sal-cell'); if(!cell)return;

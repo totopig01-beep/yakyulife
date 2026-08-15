@@ -11,6 +11,9 @@ body{
   --btnbg:linear-gradient(#2a5038,#1f3f2c);--btnedge:#3c6a4c;--btntx:#ece7d6;
   --bgfx:radial-gradient(ellipse 120% 60% at 50% -10%,rgba(29,70,48,.5) 0%,transparent 60%);
   --shadow:rgba(0,0,0,.35);
+  /* one chevron for every expand/collapse affordance; drawn as a mask so each context
+     colours it with currentColor and rotates it with the same rule */
+  --chev:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='7'><path d='M1 1l6 5 6-5' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round'/></svg>");
   /* legacy aliases: older inline templates still reference these */
   --chalk:var(--text);--amber:var(--accent);--blue:var(--info);--clay:var(--accent);
 }
@@ -33,6 +36,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15
    body background-image would tile once per viewport and show a seam on scroll */
 body::before{content:'';position:fixed;inset:0;z-index:-1;background:var(--bgfx);pointer-events:none}
 a{color:var(--info)}
+.chev{display:block;width:14px;height:7px;flex:none;background:currentColor;transition:transform .18s;
+  -webkit-mask:var(--chev) no-repeat center/14px 7px;mask:var(--chev) no-repeat center/14px 7px}
+.chev.up{transform:rotate(180deg)}
 /* ---------- 版型骨架:手機單欄(預設) / 桌面三欄(>920px) ---------- */
 #app{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh}
 #mid{flex:1;display:flex;flex-direction:column;min-width:0}
@@ -41,28 +47,47 @@ a{color:var(--info)}
 #board{position:sticky;top:0;z-index:20;background:var(--panel);
   border-bottom:2px solid var(--edge);padding:10px 14px 8px;box-shadow:0 6px 18px var(--shadow);
   padding-top:calc(10px + env(safe-area-inset-top,0px))}
-/* 3b single-line brand (handoff spec) for the mobile top bar; the desktop layout hides
-   this and carries the two-line version in the sidebar instead */
-#bd-brand{display:flex;align-items:center;gap:8px;margin-bottom:7px}
-#bd-brand .wm-img{height:19.3px} /* 15px tier x v2 canvas ratio 268/208 */
-#bd-brand .sub{color:var(--dim);font-size:10px;letter-spacing:.2em;line-height:1;
-  border-left:1px solid var(--edge);padding-left:8px;white-space:nowrap}
-@media(max-width:379px){#bd-brand .sub{display:none}} /* 極簡版: drop the Chinese sub first */
-#bd-top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:'name role menu' 'team team menu';
-  align-items:center;column-gap:6px;row-gap:3px}
-#bd-name{grid-area:name;min-width:0;font-family:var(--head);font-weight:900;font-size:17px;line-height:1.3;
-  letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:baseline}
-#bd-name small{color:var(--accent);font-weight:700;font-size:12px;line-height:1.3;margin-left:5px;font-family:var(--sans);letter-spacing:0}
-#bd-role{grid-area:role;min-width:0;color:var(--dim);font-weight:500;font-size:12px;line-height:1.3;font-family:var(--sans);align-self:baseline;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#bd-team{grid-area:team;justify-self:start;color:var(--accent);font-size:12.5px;font-weight:700;letter-spacing:.06em;white-space:nowrap}
+/* Identity row: number plate + name/chips + affiliation + hamburger, one row in both layouts
+   (author's call 2026-08-15: the phone should read like the desktop). Only #bd-id can shrink,
+   so a long name ellipsizes before the team name does. */
+#bd-top{display:flex;align-items:center;gap:11px}
+#bd-num{flex:none;width:42px;height:42px;background:var(--row);border-radius:min(var(--r),8px);
+  border:1.5px solid color-mix(in srgb,var(--accent) 47%,transparent);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+#bd-num span{font-size:7px;color:var(--dim);letter-spacing:.22em;line-height:1}
+#bd-num b{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--accent);line-height:1;text-shadow:var(--glow)}
+#bd-id{flex:0 1 auto;min-width:0;display:flex;flex-direction:column;gap:4px}
+#bd-name{min-width:0;font-family:var(--head);font-weight:900;font-size:18px;line-height:1;
+  letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#bd-role{min-width:0;display:flex;gap:5px}
+.bd-chip{font-size:10.5px;line-height:1.55;padding:1px 7px;border-radius:min(var(--r),5px);
+  min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bd-chip.pos{background:var(--panel2);border:1px solid var(--edge);color:var(--text)}
+.bd-chip.typ{border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);color:var(--accent)}
+#bd-team{flex:none;min-width:0;margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.bt-lbl{flex:none;white-space:nowrap;font-size:9px;color:var(--dim);letter-spacing:.3em}
+.bt-lbl i,.bt-lbl em{font-style:normal}
+.bt-row{flex:none;min-width:0;display:flex;align-items:center;gap:8px}
+.bt-dot{flex:none;width:8px;height:8px;border-radius:50%;box-shadow:0 0 2px rgba(0,0,0,.2)}
+.bt-name{min-width:0;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt-name.plain{color:var(--accent);font-size:14px;font-weight:700;letter-spacing:.05em}
+/* pro clubs keep the existing white-label treatment: the team colour is the jersey
+   primary and only reads at full saturation against white (see teamChip() rationale) */
+.bt-name.chip{background:#ffffff;padding:1px 7px;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,.4);font-size:12.5px}
+.bt-badge{flex:none;font-size:10.5px;font-weight:700;padding:1px 8px;
+  border-radius:min(var(--r),4px);white-space:nowrap}
+.bt-badge.top{background:var(--accent);color:var(--bg)} /* 一軍／大聯盟／學生年級:實心 */
+.bt-badge.sub{border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);color:var(--accent)} /* 還沒上去:描邊 */
 #bd-tj{display:none}
-#btn-menu{grid-area:menu;align-self:center}
-#bd-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+#btn-menu{flex:none;align-self:center}
+#bd-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:9px}
 .bd-cell{position:relative;background:var(--panel2);border:1px solid var(--edge);border-radius:var(--r);padding:4px 6px 3px;text-align:center}
 .bd-cell b{display:block;font-family:var(--disp);font-size:17px;font-weight:700;color:var(--accent);
   text-shadow:var(--glow);line-height:1.2}
 .bd-cell span{font-size:10px;color:var(--dim);letter-spacing:.15em}
+.bt-badge i{font-style:normal}
+.bt-badge .lc{display:none} /* the phone's shorter level wording; .lw is the full stageLabel() */
+#bd-hint{display:none} /* phone bar only */
 /* 記分板維持緊湊的萬／億縮寫；完整精確金額顯示在點擊提示與引退結算。 */
 #bd-sal,#bd-sal-lbl{white-space:nowrap}
 #bd-sal-cell{cursor:pointer;outline:none}
@@ -74,6 +99,69 @@ a{color:var(--info)}
 /* gate hover so a touch tap does not latch :hover and leave the tip stuck open */
 @media (hover:hover){ #bd-sal-cell:hover .bd-tip{opacity:1} }
 #bd-sal-cell.show .bd-tip,#bd-sal-cell:focus-visible .bd-tip{opacity:1}
+/* ---------- 詳情:第 5 格切換鈕＋展開面板 ---------- */
+#bd-more{background:var(--row);border:1px dashed var(--btnedge);border-radius:var(--r);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  font-family:inherit;padding:0;cursor:pointer}
+#bd-more .lb{font-size:8.5px;color:var(--dim);letter-spacing:.08em}
+#bd-more .chev{color:var(--accent)}
+#bd-more:hover{border-color:var(--accent)}
+#bd-more[aria-expanded='true']{border-style:solid;border-color:var(--accent)}
+#bd-more[aria-expanded='true'] .lb{color:var(--accent)}
+#bd-more[aria-expanded='true'] .chev{transform:rotate(180deg)}
+/* The board is position:sticky, so an unbounded panel would push the log off-screen on a
+   long career (33 seasons of 逐年). Cap it and scroll inside instead. */
+#bd-detail{display:none;margin-top:8px;background:var(--row);border:1px solid var(--edge);
+  border-radius:min(var(--r),8px);padding:11px 12px;max-height:44vh;overflow-y:auto;
+  -webkit-overflow-scrolling:touch}
+#board.detail-open #bd-detail{display:block}
+.bd-tabs{display:flex;gap:6px;margin-bottom:10px}
+.bd-tab{flex:none;background:none;border:1px solid var(--edge);border-radius:999px;color:var(--dim);
+  font-family:inherit;font-size:11px;padding:3px 11px;white-space:nowrap;cursor:pointer}
+.bd-tab:hover{color:var(--accent);border-color:var(--accent)}
+.bd-tab.on{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:700}
+.bd-sec{display:none;min-width:0}
+#bd-detail[data-tab='h'] .sec-h,#bd-detail[data-tab='s'] .sec-s,
+#bd-detail[data-tab='t'] .sec-t,#bd-detail[data-tab='y'] .sec-y{display:block}
+.bd-sh{display:none;align-items:center;gap:7px;font-size:11px;letter-spacing:.25em;
+  color:var(--dim);font-weight:700;margin-bottom:7px} /* tabs replace the headings on mobile */
+.bd-sh::before{content:'■';font-size:8px;line-height:1;color:var(--accent)}
+.bd-none{font-size:12px;color:var(--dim);padding:2px 0}
+/* 成就 */
+.bd-hr{display:flex;gap:9px;font-size:12.5px;padding:3px 0}
+.bd-hr .y{flex:none;width:82px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+.bd-hr .n b{color:var(--accent)}
+/* 薪資 */
+.bd-sr{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:3px 0}
+.bd-sr .k{flex:none;color:var(--dim)}
+.bd-sr .v{font-family:var(--mono);text-align:right;min-width:0;overflow-wrap:anywhere}
+.bd-sr.tot{align-items:baseline;border-top:1px dashed var(--edge);margin-top:4px;padding-top:5px}
+.bd-sr.tot .v{font-size:16px;font-weight:700;color:var(--accent);text-shadow:var(--glow)}
+/* 隱藏屬性 */
+.bd-tw{display:flex;flex-wrap:wrap;gap:7px}
+.bd-tc{display:flex;align-items:baseline;gap:8px;min-width:0;background:var(--panel2);
+  border:1px solid var(--edge);border-radius:min(var(--r),6px);padding:5px 10px}
+.bd-tc .n{flex:none;font-family:var(--mono);font-size:12px;color:var(--accent);white-space:nowrap}
+.bd-tc .f{font-size:11px;color:var(--dim)}
+.bd-tc.neg .n{color:var(--bad)}
+.bd-tc.off{opacity:.45}
+.bd-tc.off .n{color:var(--dim);text-decoration:line-through}
+/* 逐年成績 */
+.sec-y{overflow-x:auto}
+.bd-yg{font-size:10px;color:var(--dim);letter-spacing:.2em;margin:2px 0 3px}
+.bd-yg~.bd-yg{margin-top:8px}
+.bd-yr{display:flex;font-family:var(--mono);font-size:11.5px;padding:3px 0;
+  border-bottom:1px solid color-mix(in srgb,var(--edge) 55%,transparent)}
+.bd-yr.hd{font-size:10.5px;color:var(--dim);padding:2px 0;border-bottom:1px solid var(--edge)}
+.bd-yr.inj{color:var(--bad);font-weight:700}
+.bd-yr .y{flex:none;width:42px}
+.bd-yr .a{flex:none;width:30px;color:var(--dim)}
+.bd-yr.inj .a{color:inherit}
+.bd-yr .tm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bd-yr .ln{flex:2;min-width:0;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bd-yr.inj .ln{color:inherit}
+.bd-yr .n{flex:none;width:44px;text-align:right}
+.bd-yr .opt{display:none} /* 齡 and the wider stat columns return on desktop */
 #lamps{display:flex;gap:14px;justify-content:center;margin-top:7px}
 .lamp{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--dim);letter-spacing:.12em}
 .lamp i{width:9px;height:9px;border-radius:50%;background:var(--panel2);border:1px solid var(--edge);display:inline-block}
@@ -116,6 +204,9 @@ a{color:var(--info)}
 .tl-ver{display:block;font-size:10px;opacity:.7;letter-spacing:.05em;margin-top:2px}
 /* ---------- 主紀錄 ---------- */
 #log{flex:1;padding:14px 14px 20px;display:flex;flex-direction:column;gap:10px}
+/* mobile-only brand sign-off at the end of the log (compact container rules below);
+   the desktop layout already names the product in the timeline column */
+#log-mark{display:none}
 .yr-block{display:flex;flex-direction:column;gap:10px}
 .yr-body{display:flex;flex-direction:column;gap:10px}
 .card{background:var(--panel);border:1px solid var(--edge);border-radius:var(--r);padding:12px 14px;
@@ -150,9 +241,11 @@ table.fin td:first-child,table.fin th:first-child,table.st td:first-child,table.
 /* point-allocation UI: expand to show every ability row; tiny screens still scroll */
 #act-side.alloc{max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px)}
 #act-in{display:flex;flex-direction:column}
-#act-toggle{display:none;margin:8px auto 0;background:none;border:1px solid var(--edge);color:var(--dim);
-  font-size:11px;font-family:var(--sans);padding:3px 14px;border-radius:999px;cursor:pointer;flex:none}
-#act-toggle:hover{color:var(--accent);border-color:var(--accent)}
+/* same affordance as the top bar's hint, so both ends of the screen read alike; and the same
+   tap target too — the whole strip toggles, not just the chevron under the finger */
+#act-toggle{display:none;width:100%;min-height:40px;background:none;border:0;
+  color:var(--dim);opacity:.55;cursor:pointer;flex:none;align-items:center;justify-content:center}
+#act-toggle:hover{color:var(--accent);opacity:1}
 #act{padding:10px 14px calc(12px + env(safe-area-inset-bottom))}
 #act .title{font-family:var(--head);font-size:12px;letter-spacing:.2em;color:var(--dim);margin-bottom:8px;font-weight:700}
 #act.collapsed{display:none!important}
@@ -279,16 +372,25 @@ body[data-theme='c'] .lockup-sub em,body[data-theme='d'] .lockup-sub em{text-sha
   border-radius:min(var(--r),6px);padding:2px 6px;font-family:inherit;font-size:12px;text-align:center}
 /* logo wordmark image (handoff assets): height is set per context; applyTheme swaps cream/dark src */
 .wm-img{width:auto;display:block}
-#btn-menu{background:var(--panel2);border:1px solid var(--edge);color:var(--text);border-radius:min(var(--r),8px);
- font-family:var(--sans);font-size:14px;font-weight:700;line-height:1;padding:9px 15px;margin-left:8px;
- cursor:pointer;flex:none;white-space:nowrap}
-#btn-menu:hover{color:var(--accent);border-color:var(--accent)}
+/* three-line icon button (1A handoff), replacing the 「選單」 text button */
+#btn-menu{width:36px;height:36px;flex:none;background:none;border:1px solid var(--edge);
+ border-radius:min(var(--r),8px);padding:0;cursor:pointer;
+ display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+#btn-menu i{width:14px;height:2px;border-radius:1px;background:var(--dim);transition:background .15s}
+#btn-menu:hover{border-color:var(--accent)}
+#btn-menu:hover i{background:var(--accent)}
 /* ---------- 主題化對話框(取代原生 confirm) ---------- */
 #modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:22px}
 #modal.show{display:flex}
 #modal-box{background:var(--panel);border:1.5px solid var(--edge);border-radius:var(--r);padding:18px 18px 14px;
   max-width:340px;width:100%;box-shadow:0 18px 50px var(--shadow);animation:pop .2s ease}
 #modal-box h3{font-family:var(--head);font-size:13px;letter-spacing:.25em;color:var(--dim);font-weight:700;margin-bottom:4px}
+/* the in-game brand row moved in here: the menu is where the product names itself now */
+.md-brand{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.md-brand .wm-img{height:19.3px} /* 15px tier x v2 canvas ratio 268/208 */
+.md-brand .sub{color:var(--dim);font-size:10px;letter-spacing:.2em;line-height:1;
+  border-left:1px solid var(--edge);padding-left:8px;white-space:nowrap}
+.md-brand .ver{font-family:var(--mono);font-size:10px;color:var(--dim);opacity:.7;letter-spacing:.05em}
 #modal-box p{font-size:14px;margin:6px 0 4px}
 /* ================= 大字模式（設定：字級） =================
    Additive only: none of the base declarations above are edited, so syncing with
@@ -312,6 +414,16 @@ body.big-text .abrow{padding:10px}
 body.big-text .abrow .nm{font-size:19.6px;width:107px}
 body.big-text .abrow .val{font-size:20.3px;width:90px}
 body.big-text #modal-box p{font-size:20.3px}
+/* 詳情面板:prose blocks follow the big-text tier; the 逐年 table keeps its own scale
+   because its columns are already fixed-width and would clip rather than reflow. */
+body.big-text .bd-tab{font-size:13px}
+body.big-text .bd-none{font-size:15px}
+body.big-text .bd-hr{font-size:16px}
+body.big-text .bd-hr .y{width:auto;min-width:104px;font-size:14px}
+body.big-text .bd-sr{font-size:16px}
+body.big-text .bd-sr.tot .v{font-size:19px}
+body.big-text .bd-tc .n{font-size:14px}
+body.big-text .bd-tc .f{font-size:13px}
 /* full-screen allocation, mobile layout only, opened from the bottom panel.
    The backdrop is viewport-anchored but the panel inside it has to track the mobile-UI
    content column: at >=921px with the mobile layout forced on, #app is a 560px centred
@@ -338,12 +450,7 @@ body.big-text #alloc-full .af-title{font-size:17.4px}
   body:not(.mobile-ui) #tl-side{display:block}
   body:not(.mobile-ui) #tl-in{position:sticky;top:0;height:100vh;height:100dvh;overflow:hidden}
   body:not(.mobile-ui) #tl-strip{display:none}
-  body:not(.mobile-ui) #bd-brand{display:none} /* desktop carries the brand in the sidebar */
   body:not(.mobile-ui) #board{padding:14px 26px 12px;padding-top:calc(14px + env(safe-area-inset-top,0px))}
-  body:not(.mobile-ui) #bd-top{display:flex;align-items:baseline;gap:8px}
-  body:not(.mobile-ui) #bd-role{white-space:nowrap}
-  body:not(.mobile-ui) #bd-team{margin-left:auto}
-  body:not(.mobile-ui) .bd-cell b{font-size:19px}
   body:not(.mobile-ui) #log{padding:18px 26px 26px}
   /* the right column is a viewport-pinned full-height flex column (like the left
      timeline column): traits stay at the top, actions stick to the bottom so the
@@ -360,4 +467,135 @@ body.big-text #alloc-full .af-title{font-size:17.4px}
   /* keep the allocation panel on the same column as #app above; these two must match */
   body.mobile-ui #af-inner{max-width:560px}
   #fld-ui{display:block} /* unguarded: visible in both layouts so it can switch back */
+}
+/* ---------- 頂部欄的桌面版型(1A):容器 >=600px ----------
+   Same container as the compact bar above, so the two states are mutually exclusive by
+   construction and no third, undesigned layout can appear between them. The threshold is a
+   width the BAR has, not one the window has: the three-column page leaves the middle column
+   roughly (viewport - 250 - clamp(340,31vw,400)) px, so this asks for ~1232px of window, and
+   body.mobile-ui caps that column at 560px and therefore always gets the compact bar.
+   600 also clears the measured floor for this layout with room to spare: the widest chip pair
+   the game can produce (投手・終結者 84px + 變化球藝師 ★ 86px) stops ellipsizing at a 533px
+   column, and the five-cell scoreboard and 逐年 table need less than that.
+   body:not(.mobile-ui) still guards it: below 921px the toggle leaves #app uncapped, so the
+   container could be wide while the player has asked for the phone layout. */
+@container (min-width:600px){
+  body:not(.mobile-ui) #bd-top{gap:14px}
+  body:not(.mobile-ui) #bd-num{width:48px;height:48px;gap:2px;border-radius:min(var(--r),9px)}
+  body:not(.mobile-ui) #bd-num span{font-size:8px;letter-spacing:.25em}
+  body:not(.mobile-ui) #bd-num b{font-size:21px}
+  body:not(.mobile-ui) #bd-id{gap:5px}
+  body:not(.mobile-ui) #bd-name{font-size:21px}
+  body:not(.mobile-ui) #bd-role{gap:6px}
+  body:not(.mobile-ui) .bd-chip{font-size:11px;padding:1px 8px}
+  body:not(.mobile-ui) .bt-name.plain{font-size:15px;letter-spacing:.06em}
+  body:not(.mobile-ui) .bt-name.chip{font-size:14px;padding:2px 8px}
+  body:not(.mobile-ui) .bt-badge{font-size:11px}
+  body:not(.mobile-ui) #btn-menu{width:38px;height:38px;gap:3.5px;margin-left:6px}
+  body:not(.mobile-ui) #btn-menu i{width:15px}
+  body:not(.mobile-ui) #bd-grid{grid-template-columns:repeat(4,1fr) 62px;gap:6px;margin-top:12px}
+  body:not(.mobile-ui) #bd-more .lb{font-size:10px;letter-spacing:.15em}
+  body:not(.mobile-ui) .bd-cell b{font-size:19px}
+  /* all four blocks are on screen at once, so the tab strip is a compact-layout affordance */
+  /* no cap on the panel itself here: the per-block caps below already bound its height, and
+     an outer cap on top of them clips the bottom of a block that is scrolled to its end */
+  body:not(.mobile-ui) #bd-detail{padding:14px 16px;max-height:none}
+  body:not(.mobile-ui) #board.detail-open #bd-detail{display:grid;grid-template-columns:1fr 1fr;gap:16px 28px}
+  body:not(.mobile-ui) .bd-tabs{display:none}
+  /* each open-ended list scrolls inside its own box rather than letting one long career
+     (30 seasons, 20 honours) crowd the other three blocks out; 薪資 is always 3 rows, and
+     逐年 gets the most room because it is the block with the most to say */
+  body:not(.mobile-ui) .bd-sec{display:block;overflow-y:auto}
+  body:not(.mobile-ui) .sec-h,body:not(.mobile-ui) .sec-t{max-height:14vh}
+  body:not(.mobile-ui) .sec-y{max-height:22vh}
+  body:not(.mobile-ui) .sec-t,body:not(.mobile-ui) .sec-y{grid-column:1/-1}
+  /* padding, not margin, so the sticky heading's background covers the row scrolling under it */
+  body:not(.mobile-ui) .bd-sh{display:flex;position:sticky;top:0;z-index:1;
+    background:var(--row);margin-bottom:0;padding-bottom:7px}
+  body:not(.mobile-ui) .bd-hr{gap:10px;font-size:13px;padding:2px 0}
+  body:not(.mobile-ui) .bd-hr .y{width:96px;font-size:12px}
+  body:not(.mobile-ui) .bd-sr{font-size:13px;padding:2px 0}
+  /* names only, effect on hover (owner call): four blocks share this row, and the effect
+     strings run long enough to push 隱藏屬性 past its share of it. 已解除 stays, it is state */
+  body:not(.mobile-ui) .bd-tc:not(.off) .f{display:none}
+  body:not(.mobile-ui) .bd-tc{cursor:help}
+  body:not(.mobile-ui) .bd-yr{font-size:12px}
+  body:not(.mobile-ui) .bd-yr.hd{font-size:11px}
+  body:not(.mobile-ui) .bd-yr .y{width:46px}
+  body:not(.mobile-ui) .bd-yr .n{width:48px}
+  body:not(.mobile-ui) .bd-yr .opt{display:block}
+}
+/* ================= 手機頂部欄:與桌面同版型 =================
+   Author's call (2026-08-15), superseding the handoff's 8B two-row bar: the phone should look
+   like the desktop, minus the 詳情 cell, with the year strip standing in for the lamp row and
+   an expand chevron added. The cost is height, 130px back up to ~218px, which is the whole
+   motive of handoff §6; the owner confirmed the trade.
+
+   Scoped with a CONTAINER query, not a viewport media query, because the two things that make
+   the bar narrow differ: a phone (viewport) and the 手機版介面 toggle, which caps #app at 560px
+   on a wide screen (body.mobile-ui). Both read as "#mid is under 600px wide". */
+#mid{container-type:inline-size}
+@container (max-width:599px){
+  #board{cursor:pointer}
+  /* the whole bar is the toggle, so the 詳情 cell is not drawn. It stays in the tab order for
+     keyboard and AT and shows itself when focused. */
+  #bd-more{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%)}
+  #bd-more:focus-visible{position:static;width:auto;height:auto;padding:2px 8px;clip-path:none}
+  /* A phone cannot hold the desktop row whole: 390px leaves the identity block 112px and the
+     two chips want 159. The 稱號 chip is the one the author never asked to see there, so it
+     moves to the panel's first line and 守位 keeps its place beside the name. Below ~360px the
+     team name is what gives next, by ellipsis, so the 守位 chip still reads. */
+  #bd-role{flex:none}
+  #bd-role .bd-chip.typ{display:none}
+  /* when it is still tight the team name is what gives, not the 守位 chip: the club is named
+     again in the log a line below, the 守位 is not written anywhere else on screen */
+  /* min-width:auto, not 0: the block must not shrink past its own content, or the label
+     wraps one character per line and the row spills out of it (measured at 320px) */
+  #bd-team{flex:0 6 auto;min-width:auto}
+  .bt-row{flex:0 1 auto}
+  /* 一軍／大聯盟 carry no badge here: the club's own label already says which league it is,
+     so a badge is only worth its width while the player is still below the top. */
+  .bt-badge.nomob{display:none}
+  .bt-badge .lw{display:none} .bt-badge .lc{display:inline}
+  #lamps{display:none} /* the season moves into the panel; this row becomes the year strip */
+  #bd-hint{display:flex;justify-content:center;padding-top:8px;color:var(--dim);opacity:.55}
+  /* same affordance as #act-toggle:hover at the other end of the screen: wherever the bar
+     itself is the tap target, hovering lights the chevron. The live controls inside the bar
+     (menu, panel, year strip, salary cell) are not bar taps — same exclusion list as the
+     click handler in dom.js — so hovering them keeps the hint quiet. */
+  #board:hover:not(:has(#btn-menu:hover,#bd-detail:hover,#tl-strip:hover,#bd-sal-cell:hover)) #bd-hint{color:var(--accent);opacity:1}
+  #board.detail-open #bd-hint .chev{transform:rotate(180deg)}
+  #tl-strip{margin-top:8px;padding-bottom:0} /* the strip joins the same 8px rhythm as the rows */
+  /* Under ~360px even the 守位 chip has nowhere to go: 320px leaves the identity block 41px
+     against the chip's 79. Drop the chips from the bar there; the panel's first row has both. */
+  @container (max-width:359px){ #bd-role{display:none} }
+  /* the panel hangs over the log instead of pushing it down */
+  #board.detail-open #bd-detail{position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:5;
+    margin:0;border-left:0;border-right:0;border-radius:0 0 min(var(--r),10px) min(var(--r),10px);
+    box-shadow:0 12px 28px var(--shadow);max-height:min(60vh,420px)}
+  /* first row of the panel: what the bar had to leave out, the season and the 稱號 */
+  #bd-detail .bd-idrow{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin-bottom:9px;
+    padding-bottom:9px;border-bottom:1px solid var(--edge)}
+  #bd-detail .bd-ph{display:flex;align-items:center;gap:6px;
+    font-size:11.5px;color:var(--text);letter-spacing:.12em}
+  #bd-detail .bd-ph i{width:9px;height:9px;border-radius:50%;background:var(--accent);
+    box-shadow:var(--glow);flex:none}
+  #bd-detail .bd-idrow .bd-chip.typ{display:inline-block}
+  /* the same lockup signs off the panel, bottom right, quiet enough not to compete */
+  #bd-detail .bd-mark{display:flex;align-items:center;justify-content:flex-end;gap:7px;
+    margin-top:12px;padding-top:9px;border-top:1px solid var(--edge);opacity:.45}
+  #bd-detail .bd-mark .wm-img{height:14px}
+  #bd-detail .bd-mark .sub{color:var(--dim);font-size:9px;letter-spacing:.2em;line-height:1;
+    border-left:1px solid var(--edge);padding-left:7px;white-space:nowrap}
+  #bd-detail .bd-mark .ver{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.05em}
+  /* the compact layout has no brand anywhere on the main screen (the timeline column is
+     hidden, the top bar has no room), so the log signs off the same way the panel does:
+     in flow at the very bottom, right above the action strip — the auto-scroll keeps the
+     log's tail on screen, so it reads as a quiet fixture without ever covering a card */
+  #log-mark{display:flex;align-items:center;justify-content:center;gap:7px;opacity:.45;
+    padding:0 14px 10px}
+  #log-mark .wm-img{height:14px}
+  #log-mark .sub{color:var(--dim);font-size:9px;letter-spacing:.2em;line-height:1;
+    border-left:1px solid var(--edge);padding-left:7px;white-space:nowrap}
+  #log-mark .ver{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.05em}
 }

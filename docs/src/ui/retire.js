@@ -336,9 +336,11 @@ export function endGame(reason){
   choose('',[
     {t:'⚾ 開啟新的人生（新種子）',main:true,f:()=>{location.href=location.pathname;}},
     {t:'用同一個種子重來',s:'seed: '+SEED,f:()=>{location.href=location.pathname+'?seed='+SEED;}}]);
-  /* 結算定錨:蓋過預設的捲到底,改捲到「生涯終幕」開頭,玩家從結算第一行開始看 */
+  /* 結算定錨:蓋過預設的捲到底,把「生涯終幕」分界線置中——上半屏留給引退當下的
+     年末事件,下半屏是結算第一行。block:'start' 會把分界線整個藏進 sticky 的 #board
+     後面(量測:標題 top=0、頂欄 bottom=173,最後一張年末卡在 -85~-10px 畫面外)。 */
   setTimeout(()=>{ try{
     const heads=document.querySelectorAll('.yr-head');
-    for(const h of heads){ if(h.textContent==='生涯終幕'){ h.scrollIntoView({behavior:'auto',block:'start'}); break; } }
+    for(const h of heads){ if(h.textContent==='生涯終幕'){ h.scrollIntoView({behavior:'auto',block:'center'}); break; } }
   }catch(e){} }, 250);
 }
