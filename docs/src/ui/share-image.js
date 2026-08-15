@@ -5,7 +5,7 @@ import {TEAM_COLOR, LG_N} from '../data/teams.js';
 import {RP_TICKS} from '../data/economy.js';
 import {TRAIT_KEYS} from '../data/traits.js';
 import {teamChip} from './dom.js';
-import {traitName, traitTagStyle} from './traits.js';
+import {traitNames} from './traits.js';
 import {fmtMoney} from '../engine/contract.js';
 import {rpTagline, rpFamily, RP_F3, RP_F2, rpCumData, rpIntlData, rpHonorItems, rpOrgOf, rpProData} from './retire.js';
 /* 結算圖（Canvas 產生 PNG，可長按儲存或自動下載）
@@ -35,7 +35,8 @@ export function shareImage(evals,picks,out){
   const glowC=(_tk('--bgfx','none').match(/rgba?\([^)]*\)/)||[])[0]||null;
   const LGC={MLB:C_INFO,NPB:C_BAD,CPBL:C_ACC,MINOR:C_DIM};
   /* 特性(保留 + 刪除線標記) */
-  const keepTr=[...TRAIT_KEYS.pos,...TRAIT_KEYS.neg].filter(k=>S.traits[k]).map(k=>({label:traitName(k),key:k,neg:TRAIT_KEYS.neg.includes(k)}));
+  const keepTr=[...TRAIT_KEYS.pos,...TRAIT_KEYS.neg].filter(k=>S.traits[k]).flatMap(k=>
+    traitNames(k).map(label=>({label,key:k,neg:TRAIT_KEYS.neg.includes(k)})));
   const remTr=(S.removed||[]).map(l=>({label:l,key:'',neg:false,rem:true}));
   function tagColor(o){ /* keep in sync with traitTagStyle() + the .tag defaults */
     if(o.rem)return {bg:'#242424',bd:'#4a4a4a',fg:'#8a8a8a'};

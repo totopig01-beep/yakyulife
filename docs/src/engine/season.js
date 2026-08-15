@@ -14,16 +14,30 @@ export function pitcherRole(){ /* 體力 >=52 先發;否則牛棚,牛棚內看�
   if(S.ab.sta>=52)return 'SP';
   /* 牛棚:讀「上一季」的 d(prevD,因為 lastD 已被 phasePre 清空);頂尖 → 終結者 */
   const pd=(S.prevD!==undefined?S.prevD:(S.lastD||0));
-  const d=(S.role&&S.role!=='SP')?pd:-99;
+  /* 只有上一季已在相同頂級聯盟投牛棚，該季成績才可用於終結者升降。
+     二軍升一軍、跨聯盟或舊存檔缺少 lastLv 時，第一季一律先從中繼開始。 */
+  const currentTop=LV[S.lv]&&LV[S.lv].top, previousTop=LV[S.lastLv]&&LV[S.lastLv].top;
+  const sameTopLeague=!!currentTop&&previousTop===currentTop;
+  const d=(sameTopLeague&&S.role&&S.role!=='SP')?pd:-99;
   if(S.role==='CL')return d>=1?'CL':'MR';   /* 終結者崩盤才降中繼 */
   return d>=3?'CL':'MR';                     /* 中繼打出頂尖成績升終結者 */
 }
-export function fmtIP(ip){ /* 十進位局數轉棒球表示:小數部分 →三分之幾(出局數) */
-  if(ip==null)return '0.0';
-  const whole=Math.floor(ip); const frac=ip-whole;
-  const outs=Math.round(frac*3); /* 0/1/2/3 */
-  if(outs>=3)return (whole+1)+'.0';
-  return whole+'.'+outs;
+export function outsFromIP(ip){ /* 模擬用十進位局數統一量化為實際出局數 */
+  return Math.max(0,Math.round((Number(ip)||0)*3));
+}
+export function ipFromOuts(outs){
+  return Math.max(0,Math.round(Number(outs)||0))/3;
+}
+export function normalizeIP(ip){
+  return ipFromOuts(outsFromIP(ip));
+}
+export function baseballERA(st){
+  const ip=normalizeIP(st&&st.IP);
+  return ip>0?(Number(st&&st.ER)||0)*9/ip:null;
+}
+export function fmtIP(ip){ /* 以出局數顯示棒球局數：1/3 局=.1、2/3 局=.2 */
+  const outs=outsFromIP(ip);
+  return Math.floor(outs/3)+'.'+(outs%3);
 }
 export function roleN(r){ return {SP:'先發',MR:'中繼',CL:'終結者'}[r]||'—'; }
 export function isSP(){ return S.role==='SP'; } /* 先發引擎判定 */

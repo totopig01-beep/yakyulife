@@ -8,6 +8,7 @@ import {tlNote, tlPush, tlRestage} from '../ui/timeline.js';
 import {allocUI} from '../ui/alloc.js';
 import {addAb, ovr, dposReview} from '../engine/ability.js';
 import {rollInjury, tjCap} from '../engine/injury.js';
+import {isMrTeamEligible} from '../engine/tenure.js';
 import {amateurSeason, proSeason, slgOf, currentSalaryRating} from '../engine/season.js';
 import {buyoutRemaining, contractAnnual, contractMarketProfile, controlledAnnual, crossOffers, daibaFarewell, extensionOffer, faFlow, fmtMoney, handleDemotion, levelMinAnnual, makeContract, makeOffers, offseasonTradeCheck, pickOfferUI, signTo} from '../engine/contract.js';
 import {drawEvents, removeTrait} from './events.js';
@@ -132,6 +133,42 @@ export function phaseMid(){
         else amateurSeason(); }}]); }}]);
   }));
 }
+/* 球隊年資在季末交易前結算：交易屬於下一季異動，剛打完的球季必須記在原隊。 */
+export function updateTeamTenureTraits(){
+  if(S.stage!=='PRO'||!S.orgTeam)return;
+  S.teamSeasons=(S.teamSeasons||0)+1; /* 同一球團全部球季：二軍、復健年也算忠誠年資。 */
+  if(LV[S.lv].top&&!S.skipMid)S.teamYears=(S.teamYears||0)+1; /* 全年復健算球團年資，但不算實際頂級球季。 */
+
+  if(!S.traits.goldcloth&&S.orgTeam==='台中猛獁'&&(S.teamTally.CPBL&&S.teamTally.CPBL['台中猛獁']>=10)){
+    S.traits.goldcloth=true;
+    card('gold','隱藏屬性解鎖：黃金聖衣','效力 台中猛獁 滿十年，你已是這支球隊的象徵。披上那件黃金戰袍，你就是主場的信仰。'); board(1);
+  }
+
+  if(!S.traits.franchise&&S.teamYears>=7&&S.champThisTeam&&S.champTeam===S.orgTeam){
+    S.traits.franchise=true; S.franchiseActive=true; S.franchiseTeamName=S.orgTeam;
+    card('gold','隱藏屬性解鎖：神主牌','這座城市的球迷看著你長大。球團高層很清楚，放你走球迷會把主場拆了——<b class="hl">效力本隊期間享有交易保護與 4% 招牌球星溢價；引退評價永久 +200</b>。'); board(1);
+  }else if(S.traits.franchise&&!S.franchiseActive&&S.teamYears>=7){
+    S.franchiseActive=true; S.franchiseTeamName=S.orgTeam;
+    card('gold','神主牌效果恢復',`來到 <b class="hl">${S.orgTeam}</b> 的第七個頂級球季，你再一次成為城市無法割捨的招牌——<b class="hl">交易保護與 4% 合約溢價重新生效</b>。`); board(1);
+  }
+
+  /* ◯◯先生：同隊至少 15 季，且其中至少 2/3 是頂級聯盟球季。 */
+  const mrEligible=isMrTeamEligible(S.teamSeasons,S.teamYears);
+  if(!S.traits.mrteam&&mrEligible){ S.traits.mrteam=true; S.mrTeamName=S.orgTeam;
+    const nick=teamNick(S.orgTeam);
+    card('gold','隱藏稱號：'+nick+'先生',`在同一支球隊走過 <b class="hl">${S.teamSeasons}</b> 個球季，其中 <b class="hl">${S.teamYears}</b> 季站在頂級舞台。球迷不再喊你的名字，他們喊你「<b class="hl">${nick}先生</b>」——你就是這支球隊的代名詞。`); board(1);
+  }
+
+  /* ◯◯七彩球衣：同一聯盟生涯效力球隊數超標（中職>3、日職>5、美職>5）。 */
+  if(!S.traits.rainbow){
+    const RB={CPBL:['中職',3],NPB:['日職',5],MLB:['大聯盟',5]};
+    for(const lg in RB){
+      const n=Object.keys((S.teamTally&&S.teamTally[lg])||{}).length;
+      if(n>RB[lg][1]){ S.traits.rainbow=true; S.rainbowLg=RB[lg][0];
+        card('info','隱藏稱號：'+RB[lg][0]+'七彩球衣',`打開衣櫃，${n} 件不同的球衣掛在眼前——${RB[lg][0]}的球隊你快穿過一輪了。球迷笑稱你是「<b class="hl">七彩球衣</b>」：去到哪裡都能活下來，這也是一種本事。`); board(1); break; }
+    }
+  }
+}
 /* ---------- 季末 ---------- */
 export function phaseEnd(){
   board(2);
@@ -158,7 +195,8 @@ export function phaseEnd(){
     card('','企業隊年度收入',`本年度工作年薪：<b class="hl">${fmtMoney(AMA_ANNUAL)}</b>（每月 4 萬；生涯累計 ${fmtMoney(Math.round(S.salary))}）。這是企業隊職員收入，不是職業球員合約。`);
     board(2);
   }
-  /* 冠軍、薪資與國際賽都結算完畢後才進入季末交易；新球隊從下一季起生效。 */
+  /* 冠軍、薪資與國際賽都結算完畢後，先把本季記在原隊，再進入季末交易。 */
+  if(S.stage==='PRO')updateTeamTenureTraits();
   const go=()=>S.stage==='PRO'?offseasonTradeCheck(()=>movement()):movement();
   if(S.pool>0){ const p=S.pool; S.pool=0;
     choose('',[{t:`▸ 分配能力點（${p} 點·大賽／國際賽成果）`,main:true,f:()=>allocUI({pool:p},'季末能力點分配（大賽／國際賽成果）',go)}]); }
@@ -204,25 +242,6 @@ export function movement(){
   }
   if(S.skipMid){ finishContractYear(o); return; } /* 復健年不升降級，但照常累積年資、消耗合約年度與處理到期續約。 */
   if(o<30){ buyoutRemaining(1); endGame('能力已跌破中職二軍最低水準，'+S.year+' 年球季後遭釋出，被迫引退。'); return; }
-  /* 神主牌:同隊連續年數(轉隊會歸零,見 doTrade/signTo) */
-  if(S.stage==='PRO'&&LV[S.lv].top){ S.teamYears=(S.teamYears||0)+1;
-    if(!S.traits.goldcloth&&S.orgTeam==='台中猛獁'&&(S.teamTally.CPBL&&S.teamTally.CPBL['台中猛獁']>=10)){ S.traits.goldcloth=true;
-      card('gold','隱藏屬性解鎖：黃金聖衣','效力 台中猛獁 滿十年，你已是這支球隊的象徵。披上那件黃金戰袍，你就是主場的信仰。'); board(1); }
-    if(!S.traits.franchise&&S.teamYears>=7&&S.champThisTeam&&S.champTeam===S.orgTeam){ S.traits.franchise=true;
-      card('gold','隱藏屬性解鎖：神主牌','這座城市的球迷看著你長大。球團高層很清楚，放你走球迷會把主場拆了——<b class="hl">合約市場保有 4% 招牌球星溢價，並提高引退評價</b>。'); }
-    /* ◯◯先生:同一支球隊效力滿 15 年且成績穩定 */
-    if(!S.traits.mrteam&&S.teamYears>=15&&(S.lastD||0)>=0){ S.traits.mrteam=true; S.mrTeamName=S.orgTeam;
-      const nick=teamNick(S.orgTeam);
-      card('gold','隱藏稱號：'+nick+'先生',`十五個年頭，同一件球衣。球迷不再喊你的名字，他們喊你「<b class="hl">${nick}先生</b>」——你就是這支球隊的代名詞。`); board(1); }
-    /* ◯◯七彩球衣:同一聯盟生涯效力球隊數超標(中職>3、日職>5、美職>5) */
-    if(!S.traits.rainbow){
-      const RB={CPBL:['中職',3],NPB:['日職',5],MLB:['大聯盟',5]};
-      for(const lg in RB){
-        const n=Object.keys((S.teamTally&&S.teamTally[lg])||{}).length;
-        if(n>RB[lg][1]){ S.traits.rainbow=true; S.rainbowLg=RB[lg][0];
-          card('info','隱藏稱號：'+RB[lg][0]+'七彩球衣',`打開衣櫃，${n} 件不同的球衣掛在眼前——${RB[lg][0]}的球隊你快穿過一輪了。球迷笑稱你是「<b class="hl">七彩球衣</b>」：去到哪裡都能活下來，這也是一種本事。`); board(1); break; }
-      }
-    } }
   const path=PATHS[S.org], idx=path.indexOf(S.lv);
   let minReq=LV[S.lv].min;
   if(S.org==='NPB'&&S.npbYears>=8){ minReq-=4; }

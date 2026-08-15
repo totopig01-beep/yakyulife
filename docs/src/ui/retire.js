@@ -6,8 +6,8 @@ import {TIER_TH, FAN, RP_LV_SUF} from '../data/economy.js';
 import {TRAIT_KEYS} from '../data/traits.js';
 import {$, card, choose, divider, board, actClear} from './dom.js';
 import {careerTimelineCard, tlNote} from './timeline.js';
-import {traitName, traitTagStyle} from './traits.js';
-import {roleN, fmtIP, slgOf} from '../engine/season.js';
+import {traitNames, traitTagStyle} from './traits.js';
+import {roleN, fmtIP, slgOf, baseballERA} from '../engine/season.js';
 import {playerType} from '../engine/ability.js';
 import {fmtMoney} from '../engine/contract.js';
 import {capTeam, careerMilestones, honorGroups, posLegendPhrase, primaryPos, statTable, tierOf, yearRanges, honorText} from '../engine/career.js';
@@ -62,8 +62,8 @@ export function rpIntlData(){
   if(isP){
     return {hd:['G','IP','W','SV','SO','ERA'],
       rows:il.map(r=>{ const st=r.st; return {year:r.year,name:r.name,rank:r.rank,
-        txt:[st.G,fmtIP(st.IP),st.W,st.SV,st.SO,RP_F2(st.IP>0?st.ER*9/st.IP:null)]}; }),
-      tot:[IS.G,fmtIP(IS.IP),IS.W,IS.SV,IS.SO,RP_F2(IS.IP>0?IS.ER*9/IS.IP:null)]};
+        txt:[st.G,fmtIP(st.IP),st.W,st.SV,st.SO,RP_F2(baseballERA(st))]}; }),
+      tot:[IS.G,fmtIP(IS.IP),IS.W,IS.SV,IS.SO,RP_F2(baseballERA(IS))]};
   }
   return {hd:['G','PA','AVG','H','HR','RBI'],
     rows:il.map(r=>{ const st=r.st; return {year:r.year,name:r.name,rank:r.rank,
@@ -155,7 +155,7 @@ export function retireScene(tiers){
     card('gold','引退兩年後・'+mrTitle,`引退兩年後，你重新穿上了球衣，踏上了熟悉的主場。當你往投手丘一步步走去，觀眾的歡呼聲幾乎讓整個球場震動。當你踏上了投手板，你接過了主持人手中的球與手套，就像你做過幾萬次的那樣，把球往昔日的隊友手套裡扔去，雖然已經沒有了球速，但你聽到球進手套的聲音，卻是無比清脆。<br><br>你的背號 <b class="hl">#${S.jersey}</b> 被掛在了牆壁上，你曾經用表現守護著這座球場，而現在你是這座球場上永遠不可或缺的榮耀。`);
   }
   /* 名人堂票選(可多聯盟並存) */
-  const hofs=[]; let firstBallot=false; const hofLeagues=[];
+  const hofs=[], firstBallotLeagues=[];
   const HOF_CFG={CPBL:{n:'中華職棒名人堂',wait:5,total:132,lg:'中職'},NPB:{n:'日本野球殿堂',wait:5,total:326,lg:'日職'},MLB:{n:'美國棒球名人堂',wait:5,total:389,lg:'大聯盟'}};
   ['CPBL','NPB','MLB'].forEach(b=>{ const t=tiers[b]; if(!t)return;
     const cfg=HOF_CFG[b];
@@ -165,8 +165,7 @@ export function retireScene(tiers){
       const fbMult={CPBL:1.12,NPB:1.12,MLB:1.2}[b]||1.2; /* 大聯盟最嚴,中職日職放寬 */
       const firstNow = t.sc>=th*fbMult;
       const ballotYr = firstNow?1:ri(2,6);
-      if(firstNow){ firstBallot=true; }
-      hofLeagues.push(cfg.lg);
+      if(firstNow)firstBallotLeagues.push(cfg.lg);
       const pct=Math.min(99.1,75+ (t.sc-th)/th*40 + R()*6 - (ballotYr-1)*4);
       const votes=Math.round(cfg.total*Math.max(75,pct)/100);
       if(!S.hofInfo)S.hofInfo=[]; S.hofInfo.push({lg:cfg.lg,yr:ballotYr,pct:Math.max(75,pct).toFixed(1)}); /* 供結算圖 */
@@ -176,11 +175,15 @@ export function retireScene(tiers){
       const pct=55+R()*17, tries=ri(3,9);
       hofs.push(`你連續 ${tries} 年入圍${cfg.n}票選，最高曾獲得 ${pct.toFixed(1)}% 得票率，可惜始終未能跨過 75% 門檻。`);
     } });
-  if(firstBallot&&!S.traits.legend){ S.traits.legend=true;
-    S.legendLeague=hofLeagues[0]||''; }
+  if(firstBallotLeagues.length){
+    const old=Array.isArray(S.legendLeagues)?S.legendLeagues:[];
+    S.legendLeagues=[...new Set([...old,...firstBallotLeagues])];
+    S.legendLeague=S.legendLeagues[0]||''; /* 舊顯示欄位相容 */
+    S.traits.legend=true;
+  }
   if(hofs.length)card('gold','名人堂票選',hofs.join('<br><br>'));
-  if(S.traits.legend){ card('gold','隱藏屬性解鎖：'+(S.legendLeague||'')+'歷史級球星',
-    `第一年投票就披上名人堂金袍——你不只是進了殿堂，你<b class="hl">定義了一個時代</b>。這個名字，會被寫進${S.legendLeague||''}的歷史課本。`); }
+  firstBallotLeagues.forEach(lg=>card('gold','隱藏屬性解鎖：'+lg+'歷史級球星',
+    `第一年投票就披上名人堂金袍——你不只是進了殿堂，你<b class="hl">定義了一個時代</b>。這個名字，會被寫進${lg}的歷史課本。`));
 }
 export function endGame(reason){
   S.done=true; actClear();
@@ -257,8 +260,8 @@ export function endGame(reason){
   if(S.intlCount>0){ const IS=S.intlStat;
     const il=S.intlLog||[];
     if(S.pos==='P'){
-      const rows=il.map(r=>{ const st=r.st, era=st.IP>0?(st.ER*9/st.IP).toFixed(2):'-'; return `<tr><td>${r.year}</td><td style="text-align:left;white-space:nowrap">${r.name}</td><td>${r.rank}</td><td>${st.G}</td><td>${fmtIP(st.IP)}</td><td>${st.W}</td><td>${st.SV}</td><td>${st.SO}</td><td>${era}</td></tr>`; }).join('');
-      const era=IS.IP>0?(IS.ER*9/IS.IP).toFixed(2):'-';
+      const rows=il.map(r=>{ const st=r.st, era=RP_F2(baseballERA(st)); return `<tr><td>${r.year}</td><td style="text-align:left;white-space:nowrap">${r.name}</td><td>${r.rank}</td><td>${st.G}</td><td>${fmtIP(st.IP)}</td><td>${st.W}</td><td>${st.SV}</td><td>${st.SO}</td><td>${era}</td></tr>`; }).join('');
+      const era=RP_F2(baseballERA(IS));
       intlTable=`<h4 style="margin:12px 0 4px">國際賽逐屆成績（中華隊 ${S.intlCount} 屆）</h4><table class="fin"><tr><th>年度</th><th>賽事</th><th>結果</th><th>G</th><th>IP</th><th>W</th><th>SV</th><th>SO</th><th>ERA</th></tr>${rows}<tr><th colspan="3">國際賽通算</th><td>${IS.G}</td><td>${fmtIP(IS.IP)}</td><td>${IS.W}</td><td>${IS.SV}</td><td>${IS.SO}</td><td>${era}</td></tr></table>`;
     } else {
       const rows=il.map(r=>{ const st=r.st, avg=st.AB>0?(st.H/st.AB).toFixed(3).replace(/^0/,''):'-'; return `<tr><td>${r.year}</td><td style="text-align:left;white-space:nowrap">${r.name}</td><td>${r.rank}</td><td>${st.G}</td><td>${st.PA}</td><td>${avg}</td><td>${st.H}</td><td>${st.HR}</td><td>${st.RBI}</td></tr>`; }).join('');
@@ -274,7 +277,7 @@ export function endGame(reason){
   card(settlementItems.length?'gold':'','獎項、大賽與里程碑',honorsHTML);
   /* 特質與薪資 */
   const tr=[];
-  [...TRAIT_KEYS.pos,...TRAIT_KEYS.neg].forEach(k=>{ if(S.traits[k])tr.push(`<span class="tag" style="${traitTagStyle(k)}">${traitName(k)}</span>`); });
+  [...TRAIT_KEYS.pos,...TRAIT_KEYS.neg].forEach(k=>{ if(S.traits[k])traitNames(k).forEach(name=>tr.push(`<span class="tag" style="${traitTagStyle(k)}">${name}</span>`)); });
   (S.removed||[]).forEach(lbl=>tr.push(`<span class="tag" style="text-decoration:line-through;opacity:.4;color:#8a8a8a;border-color:#4a4a4a">${lbl}</span>`));
   const lv=S.love;
   const cur=lv.st==='married'?`老婆 ${lv.partner}（${lv.kids}）`:lv.st==='dating'?`交往中 ${lv.partner}（${lv.dyrs||0} 年）`:lv.st==='divorced'?'離婚':'未婚';
@@ -298,7 +301,7 @@ export function endGame(reason){
   if(S.honors.some(h=>h.includes('經典賽冠軍')))picks.push('經典賽奪冠那一夜，全台灣都沒睡。謝謝你');
   if(S.love.caught)picks.push('球技沒話說，私生活就……唉，不說了');
   if(S.traits.scum)picks.push('引退串裡不准提那些事，今天只談棒球。……好啦還是很氣');
-  if(S.traits.franchise)picks.push('一隊一人，退休號碼準備掛上去了。謝謝你留下來');
+  if(S.traits.franchise)picks.push(S.franchiseActive?'一隊一人，退休號碼準備掛上去了。謝謝你留下來':'他曾經是一座城市不能被取代的神主牌，那段歲月沒有人會忘記');
   if(S.traits.legend)picks.push('這輩子能看到你打球，是我們這代球迷的福氣。歷史級的');
   if(S.traits.intlace)picks.push('穿上國家隊球衣的那個男人，永遠的國家英雄');
   if(S.traits.taiwan)picks.push('六度披上國家隊戰袍，從不推辭。他比劃胸口的那一幕，我手機桌布放到現在');

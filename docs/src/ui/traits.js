@@ -1,11 +1,17 @@
 import {S} from '../core/state.js';
 import {$, teamChip} from './dom.js';
-import {TRAIT_KEYS, TRAIT_N, TRAIT_FX} from '../data/traits.js';
+import {TRAIT_KEYS, TRAIT_N, TRAIT_FX, legendTraitNames} from '../data/traits.js';
 import {TEAM_COLOR, teamNick} from '../data/teams.js';
 
+export function traitNames(k){
+  if(k==='legend'){
+    return legendTraitNames(S.legendLeagues,S.legendLeague); /* legendLeague 供舊狀態相容 */
+  }
+  return [traitName(k)];
+}
 export function traitName(k){
   if(k==='mrteam')return (teamNick(S.mrTeamName||'')||'')+'先生';
-  if(k==='legend')return (S.legendLeague||'')+'歷史級球星';
+  if(k==='legend')return traitNames(k)[0]||'歷史級球星';
   if(k==='rainbow')return (S.rainbowLg||'')+'七彩球衣';
   return TRAIT_N[k]||k; }
 export function traitTagStyle(k){
@@ -21,7 +27,7 @@ export function renderTraits(){ /* desktop trait side panel (presentation only) 
   if(S&&S.traits){
     /* one row per trait: tag + inline effect text (ellipsized; full text on hover) */
     const row=(style,name,fx)=>`<div class="trow" title="${fx}"><span class="tag" style="${style}" title="${fx}">${name}</span><span class="td">${fx}</span></div>`;
-    [...TRAIT_KEYS.pos,...TRAIT_KEYS.neg].forEach(k=>{ if(S.traits[k])h+=row(traitTagStyle(k),traitName(k),TRAIT_FX[k]||''); });
+    [...TRAIT_KEYS.pos,...TRAIT_KEYS.neg].forEach(k=>{ if(S.traits[k])traitNames(k).forEach(name=>{ h+=row(traitTagStyle(k),name,TRAIT_FX[k]||''); }); });
     (S.removed||[]).forEach(l=>h+=`<div class="trow"><span class="tag" style="text-decoration:line-through;opacity:.4;color:#8a8a8a;border-color:#4a4a4a">${l}</span><span class="td" style="opacity:.4">已解除</span></div>`);
   }
   el.innerHTML=h;

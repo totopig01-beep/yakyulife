@@ -15,6 +15,12 @@ export function awardP(value,hardLow,autoWin,base=25,lower=false){
   const progress=lower?(hardLow-value)/(hardLow-autoWin):(value-hardLow)/(autoWin-hardLow);
   return clamp(base+progress*(95-base),base,95);
 }
+export function rookieAwardGuaranteed(honors,year,leagueName){
+  const sameLeagueAwards=honors.filter(x=>x.startsWith(`${year} ${leagueName}`));
+  const elite=sameLeagueAwards.some(x=>/年度MVP|年度最佳投手/.test(x));
+  const titleCount=sameLeagueAwards.filter(x=>/(三振王|救援王|中繼王|打擊王|全壘打王|盜壘王|打點王|上壘王)$/.test(x)).length;
+  return elite||titleCount>=2;
+}
 export function awards(bucket,st){
   if(!LV[S.lv].top||S.seasonFactor===0)return;
   const y=S.year,h=S.honors,lgN={CPBL:'中職',NPB:'日職',MLB:'大聯盟'}[bucket];
@@ -58,14 +64,7 @@ export function awards(bucket,st){
     }
   }
 
-  /* 2. 新人王：依 d 值成長機率 */
-  const rookieOK=bucket!=='CPBL'||!(S.stats.NPB||S.stats.MLB||S.stats.MINOR);
-  if(S.stats[bucket].yr===1&&rookieOK){
-    const rkP=awardP(st.d,4,10,30);
-    if(chance(rkP)) h.push(`${y} ${lgN}新人王`);
-  }
-
-  /* 3. 投手個人獎項 */
+  /* 2. 投手個人獎項 */
   if(S.pos==='P'){
     if(isSP() && st.IP >= th.g){
       let p=awardP(st.era,th.era[0],th.era[1],30,true);
@@ -83,7 +82,7 @@ export function awards(bucket,st){
     }
     { const p=awardP(st.SO,th.so[0],th.so[1]); if(chance(p))h.push(`${y} ${lgN}三振王`); }
   }
-  /* 4. 野手個人獎項 */
+  /* 3. 野手個人獎項 */
   else{
     if(st.PA >= 350){
       const p=awardP(st.avg,th.avg[0],th.avg[1]);
@@ -118,7 +117,7 @@ export function awards(bucket,st){
     }
   }
 
-  /* 5. 年度 MVP（最高榮譽）：先通過真實成績門檻，再與聯盟其他球員競爭。 */
+  /* 4. 年度 MVP（最高榮譽）：先通過真實成績門檻，再與聯盟其他球員競爭。 */
   const isReliever=S.pos==='P'&&!isSP();
   let mvpQual=false;
   if(S.pos==='P'){
@@ -149,6 +148,13 @@ export function awards(bucket,st){
       const pMVP=awardP(st.d,8,16,8);
       if(chance(pMVP))h.push(`${y} ${lgN}年度MVP`);
     }
+  }
+
+  /* 5. 新人王：一般情況依 d 值抽選；橫掃級新人不會因獨立亂數漏獎。 */
+  const rookieOK=bucket!=='CPBL'||!(S.stats.NPB||S.stats.MLB||S.stats.MINOR);
+  if(S.stats[bucket].yr===1&&rookieOK){
+    const rkP=rookieAwardGuaranteed(h,y,lgN)?100:awardP(st.d,4,10,30);
+    if(chance(rkP)) h.push(`${y} ${lgN}新人王`);
   }
 
   /* 6. 後續獲獎觸發特質 */

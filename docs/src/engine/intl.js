@@ -3,26 +3,27 @@ import {R, ri, chance, clamp} from '../core/rng.js';
 import {LV} from '../data/teams.js';
 import {card, choose, board} from '../ui/dom.js';
 import {tlNote} from '../ui/timeline.js';
-import {isSP, fmtIP} from './season.js';
+import {isSP, fmtIP, outsFromIP, ipFromOuts, normalizeIP, baseballERA} from './season.js';
 import {ovr} from './ability.js';
 export function intlStatLine(st){
   if(S.pos==='P'){
-    const era=st.IP>0?(st.ER*9/st.IP).toFixed(2):'-';
-    return `出賽 ${st.G}｜${fmtIP(st.IP)} 局｜${st.W} 勝｜${st.SV} 救援｜${st.SO} 三振｜ERA ${era}`;
+    const era=baseballERA(st);
+    return `出賽 ${st.G}｜${fmtIP(st.IP)} 局｜${st.W} 勝｜${st.SV} 救援｜${st.SO} 三振｜ERA ${era==null?'-':era.toFixed(2)}`;
   }
   const avg=st.AB>0?(st.H/st.AB).toFixed(3).replace(/^0/,''):'-';
   return `出賽 ${st.G}｜${st.PA} 打席｜打擊率 ${avg}｜${st.H} 安｜${st.HR} 轟｜${st.RBI} 打點`;
 }
 export function addIntlStat(st){
-  Object.keys(st).forEach(k=>{ S.intlStat[k]=(S.intlStat[k]||0)+st[k]; });
-  S.intlStat.IP=+S.intlStat.IP.toFixed(1);
+  const oldOuts=outsFromIP(S.intlStat.IP);
+  Object.keys(st).forEach(k=>{ if(k!=='IP')S.intlStat[k]=(S.intlStat[k]||0)+st[k]; });
+  if(Object.prototype.hasOwnProperty.call(st,'IP'))S.intlStat.IP=ipFromOuts(oldOuts+outsFromIP(st.IP));
 }
 /* MVP 先看當屆實績，再用機率代表與其他國家球員競爭；普通成績不會入圍。 */
 export function intlMvpRate(st,finish){
   if(finish>1)return 0; /* 賽會 MVP 原則上只從冠亞軍球隊產生 */
   let score=0;
   if(S.pos==='P'){
-    const era=st.IP>0?st.ER*9/st.IP:9;
+    const era=baseballERA(st)??9;
     score=st.IP+st.SO*1.5+st.W*8+st.SV*6+Math.max(0,3.5-era)*5-Math.max(0,era-3.5)*4;
   }else{
     const avg=st.AB>0?st.H/st.AB:0;
@@ -69,10 +70,10 @@ export function maybeIntl(done){
           let g, ip;
           if(isSP()){
             g = teamGames>=6?ri(1,2):1; /* 預賽／八強最多一場先發，進四強或 12 強複賽後才可能二度先發 */
-            ip = +(g * (4.5 + R() * 2.5)).toFixed(1); /* 配合球數限制，單場大約吃 4.5~7 局 */
+            ip = normalizeIP(g * (4.5 + R() * 2.5)); /* 配合球數限制，單場大約吃 4.5~7 局；量化為完整出局數 */
           } else {
             g = clamp(Math.round(teamGames*(0.55+R()*0.25)),1,teamGames); /* 牛棚登板數隨球隊實際賽程增減 */
-            ip = +(g * (0.8 + R() * 0.8)).toFixed(1); /* 每次上場大約拆彈或投 0.8~1.6 局 */
+            ip = normalizeIP(g * (0.8 + R() * 0.8)); /* 每次上場大約拆彈或投 0.8~1.6 局；量化為完整出局數 */
           }
           
           const k9=clamp(7.5+dd*0.12+clutch*.5,4,14);
