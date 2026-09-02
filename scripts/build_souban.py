@@ -82,12 +82,26 @@ for old, new, label in [
     ev = need_replace(ev, old, new, label)
 # Keep the user's requested +1 / +2 / +3 scale even after clutch unlocks.
 ev = ev.replace("if(mode==='bold'&&S.traits.clutch)mag=good?4:2; /* 大心臟:上檔更高、下檔更軟 */", "/* 爽版：全力一搏固定 +3，不再因大心臟改成 +4 */")
+# Injury-type event cards cannot add injury risk in 爽版; keep the display consistent with the hard 0% rule.
+ev, n_inj = re.subn(
+    r"if\(k==='inj'\)\{.*?\}\s*else if\(k==='rand'\)",
+    "if(k==='inj'){ S.tmpInj=0; out.push('爽版：本季受傷機率固定 <span class=\"up\">0%</span>');}\n    else if(k==='rand')",
+    ev, count=1, flags=re.S)
+if n_inj != 1:
+    raise SystemExit('patch failed [events]: injury event branch')
 if 'good=chance(od.' in ev:
     raise SystemExit('validation failed [events]: probability success check remains')
 write('src/flow/events.js', ev)
 
 # ---------- Pre-season training: exactly six dice, all sixes ----------
 ph = read('src/flow/phases.js')
+# Clear any injury/TJ residue from old saves before the new season starts.
+ph, n = re.subn(
+    r"export function phasePre\(\)\{\s*\n\s*board\(0\);",
+    "export function phasePre(){\n  /* 爽版：傷病與 Tommy John 永久關閉；舊存檔殘留也在季初清除。 */\n  S.rehab=0; S.tj=0; S.injNext=0; S.tmpInj=0; S.marketInjury='healthy';\n  board(0);",
+    ph, count=1)
+if n != 1:
+    raise SystemExit('patch failed [NO-INJURY]: phasePre reset')
 ph, n = re.subn(r"let n=S\.skipMid\?2:\(\(\)=>\{const r=R\(\);return r<0\.35\?3:r<0\.75\?4:r<0\.95\?5:6;\}\)\(\);", "let n=6;", ph, count=1)
 if n != 1:
     raise SystemExit('patch failed [MAX6]: dice count')
@@ -106,6 +120,32 @@ if 'let n=6;' not in ph or 'const v=6;' not in ph:
 salary_insert = "S.salary+=sal;\n    const _salaryRows=S.log.filter(r=>r&&r.st&&r.y===S.year&&r.age===S.age);\n    if(_salaryRows.length)_salaryRows[_salaryRows.length-1].sal=sal;"
 ph = need_replace(ph, 'S.salary+=sal;', salary_insert, 'annual salary log')
 write('src/flow/phases.js', ph)
+
+# ---------- Injuries / Tommy John: hard-disabled ----------
+inj = read('src/engine/injury.js')
+inj = need_replace(
+    inj,
+    "export function tjAccrue(st,lv){",
+    "export function tjAccrue(st,lv){ S.tj=0; return; /* 爽版：不累積 TJ 負荷 */",
+    'TJ accrue off')
+inj = need_replace(
+    inj,
+    "export function tjGamble(cont){",
+    "export function tjGamble(cont){ S.tj=0; S.rehab=0; if(cont)cont(); return; /* 爽版：永不觸發 Tommy John */",
+    'TJ gamble off')
+inj = need_replace(
+    inj,
+    "export function injuryProb(){",
+    "export function injuryProb(){ return 0; /* 爽版：所有一般傷病機率固定 0% */",
+    'injury probability zero')
+inj = need_replace(
+    inj,
+    "export function rollInjury(){",
+    "export function rollInjury(){ S.injNext=0; S.tmpInj=0; S.rehab=0; S.tj=0; S.marketInjury='healthy'; card('info','健康回報','本季平安出賽。（爽版：受傷機率 0%｜Tommy John 關閉）'); return; /* 爽版硬關閉傷病判定 */",
+    'injury roll off')
+if "return 0; /* 爽版：所有一般傷病機率固定 0% */" not in inj or "永不觸發 Tommy John" not in inj:
+    raise SystemExit('validation failed [NO-INJURY]')
+write('src/engine/injury.js', inj)
 
 # ---------- Career timeline / retirement share image: append annual salary ----------
 rt = read('src/ui/retire.js')
