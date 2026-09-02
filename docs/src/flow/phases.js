@@ -89,9 +89,9 @@ export function phasePre(){
   if(S.pos==='P'&&S.stage==='PRO'&&!S.skipMid){
     afterAsk=()=>{
       choose(`開季投球規劃（手臂狀況：${(function(){const r=S.tj/tjCap();return S.rehab>0?'復健中':r>=0.85?'手肘隱隱作痛':r>=0.6?'手臂略感疲勞':r>=0.35?'狀況尚可':'手感輕盈';})()}）`,[
-        {t:'全力投',warn:true,s:'成績最佳｜手臂負荷最大（TJ 累積 ×1.30）',f:()=>{S.effort='全力投';preAsk();}},
-        {t:'普通投',main:true,s:'標準強度｜TJ 累積正常',f:()=>{S.effort='普通投';preAsk();}},
-        {t:'養生球',s:'成績保守｜省手臂（TJ 累積 ×0.80）',f:()=>{S.effort='養生球';preAsk();}}]);
+        {t:'全力投',warn:true,s:'成績最佳｜爽版：無 TJ 風險',f:()=>{S.effort='全力投';preAsk();}},
+        {t:'普通投',main:true,s:'標準強度｜爽版：無 TJ 風險',f:()=>{S.effort='普通投';preAsk();}},
+        {t:'養生球',s:'成績保守｜爽版：無 TJ 風險',f:()=>{S.effort='養生球';preAsk();}}]);
     };
   }
   /* 大學季前：是否投入選秀與旅外（大二～大四） */
