@@ -39,17 +39,24 @@ export const CPBL_TEAMS=['台中猛獁','府城雄獅','桃園金剛','新北騎
 export const NPB_TEAMS=['東京大人','阪神猛虎','橫濱海星','廣島紅鯉','神宮飛燕','名古屋神龍','福岡猛禽','北海道培根','千葉海潮','仙台金梟','大阪蠻牛','埼玉雄獅'];
 export const MLB_TEAMS=['洛城藍電','聖港修士','灣區大人','紐約帝國','波士頓襪王','紐約大蘋果','費城鐵魂','亞城戰斧','風城幼熊','河濱緋雀','星港火箭','孤星騎兵','翡翠水兵','洛城神使','楓葉藍鴉','快船金鷗','海灣雷射','森林悍將','汽車城猛虎','北星雙塔','風城襪王','向日葵王室','競技者','奶油杜康','鋼鐵船長','魔法魚人','首都人民','沙漠眼鏡蛇','黛紫高原','女王城紅軍'];
 /* par=該層級平均水準, min=最低限度(低於→降級/戰力外), g=球季場次 */
+/* rot = 先發輪值人數。先發一季的輪次 = g / rot，這才是決定先發場次與局數的量，
+   不是球季場次本身。日職是六人輪值，所以球季比中職長 19%、輪次卻幾乎相同
+   (143/6 = 23.8 vs 120/5 = 24.0)；大聯盟五人輪值 162 場 = 32.4 輪，比中職多 35%。
+   舊版的先發場次公式沒有這一項，導致三個聯盟的先發都投 25~30 場、約 150 局，
+   但獎項門檻、TJ 負荷、薪資工作量四處都假設局數會隨聯盟放大——矛盾就出在這裡。 */
 export const LV={
- CPBL2:{n:'中職二軍',par:34,min:30,g:80, org:'CPBL'},
- CPBL1:{n:'中職一軍',par:44,min:41,g:120,org:'CPBL',top:'CPBL'},
- NPB2:{n:'日職二軍',par:47,min:44,g:100,org:'NPB'},
- NPB1:{n:'日職一軍',par:53,min:50,g:143,org:'NPB',top:'NPB'},
- R:{n:'新人聯盟',par:41,min:39,g:55, org:'MiLB'},
- A1:{n:'1A',par:45,min:43,g:110,org:'MiLB'},
- A2:{n:'2A',par:49,min:47,g:120,org:'MiLB'},
- A3:{n:'3A',par:54,min:52,g:130,org:'MiLB'},
- MLB:{n:'大聯盟',par:59,min:56,g:162,org:'MiLB',top:'MLB'},
+ CPBL2:{n:'中職二軍',par:34,min:30,g:80, rot:5,org:'CPBL'},
+ CPBL1:{n:'中職一軍',par:44,min:41,g:120,rot:5,org:'CPBL',top:'CPBL'},
+ NPB2:{n:'日職二軍',par:47,min:44,g:100,rot:6,org:'NPB'},
+ NPB1:{n:'日職一軍',par:53,min:50,g:143,rot:6,org:'NPB',top:'NPB'},
+ R:{n:'新人聯盟',par:41,min:39,g:55, rot:5,org:'MiLB'},
+ A1:{n:'1A',par:45,min:43,g:110,rot:5,org:'MiLB'},
+ A2:{n:'2A',par:49,min:47,g:120,rot:5,org:'MiLB'},
+ A3:{n:'3A',par:54,min:52,g:130,rot:5,org:'MiLB'},
+ MLB:{n:'大聯盟',par:59,min:56,g:162,rot:5,org:'MiLB',top:'MLB'},
 };
+/* 先發輪次相對「中職一軍 24 輪」的倍率，供先發場次公式使用。 */
+export function spLoad(lv){ const L=LV[lv]; if(!L)return 1; return ((L.g||120)/(L.rot||5))/24; }
 export const PATHS={CPBL:['CPBL2','CPBL1'],NPB:['NPB2','NPB1'],MiLB:['R','A1','A2','A3','MLB']};
 export const HS_CUPS=['木棒聯賽','黑豹旗','玉山盃'];
 export const U_CUPS=['大學春季聯賽','大專盃'];

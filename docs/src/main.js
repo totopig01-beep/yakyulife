@@ -1,13 +1,13 @@
-import {SEED, setSeed, seedInit} from './core/rng.js';
-import {S, setS, newState} from './core/state.js';
-import {APP_VER} from './config.js';
-import {POSN} from './data/abilities.js';
-import {LV} from './data/teams.js';
-import {$, card, modalClose, actToggleSync} from './ui/dom.js';
-import {THEME_KEY, BIG_KEY, applyTheme, applyMobileUI, applyBigText, updDispSum} from './ui/prefs.js';
-import {allocFullClose} from './ui/alloc.js';
-import {TL, resetTL, renderTimeline, tlScrollTo} from './ui/timeline.js';
-import {startYear} from './flow/phases.js';
+import {SEED, setSeed, seedInit} from './core/rng.js?v=1.5.11';
+import {S, setS, newState} from './core/state.js?v=1.5.11';
+import {APP_VER} from './config.js?v=1.5.11';
+import {POSN} from './data/abilities.js?v=1.5.11';
+import {LV} from './data/teams.js?v=1.5.11';
+import {$, card, modalClose, actToggleSync} from './ui/dom.js?v=1.5.11';
+import {THEME_KEY, BIG_KEY, applyTheme, applyMobileUI, applyBigText, updDispSum} from './ui/prefs.js?v=1.5.11';
+import {allocFullClose} from './ui/alloc.js?v=1.5.11';
+import {TL, resetTL, renderTimeline, tlScrollTo} from './ui/timeline.js?v=1.5.11';
+import {startYear} from './flow/phases.js?v=1.5.11';
 
 /* ================= 開場設定 ================= */
 /* iOS Safari zoom guards. Pinch: Safari ignores maximum-scale/user-scalable, so the
@@ -57,23 +57,36 @@ import {startYear} from './flow/phases.js';
   (function(){ const det=document.getElementById('fld-display'); if(!det)return;
     const body=document.getElementById('disp-body'), sum=det.querySelector('summary');
     if(!body||!sum)return; let anim=null;
+    const sync=on=>{ body.hidden=!on; sum.setAttribute('aria-expanded',on?'true':'false'); };
+    const focusPref=()=>{ (body.querySelector('#seg-theme button.on')||body.querySelector('button'))?.focus(); };
+    sync(det.open);
+    det.addEventListener('toggle',()=>{ if(!anim)sync(det.open); });
     sum.addEventListener('click',ev=>{
       if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
       ev.preventDefault();
       if(anim){ anim.cancel(); anim=null; }
       const opening=!det.open;
-      if(opening)det.open=true;
+      if(opening){ det.open=true; sync(true); }
       const h=body.getBoundingClientRect().height;
       body.style.overflow='hidden';
       anim=body.animate({height:opening?['0px',h+'px']:[h+'px','0px'],
         opacity:opening?[0,1]:[1,0]},{duration:280,easing:'ease'});
-      anim.onfinish=()=>{ body.style.overflow=''; anim=null; if(!opening)det.open=false; };
+      anim.onfinish=()=>{ body.style.overflow=''; anim=null; if(!opening){ det.open=false; sync(false); } };
+    });
+    sum.addEventListener('keydown',ev=>{
+      if(ev.key!=='Enter'&&ev.key!==' ')return;
+      const opening=!det.open;
+      ev.preventDefault(); sum.click();
+      if(opening)setTimeout(focusPref,matchMedia('(prefers-reduced-motion: reduce)').matches?0:300);
     }); })();
   let t='a'; try{t=localStorage.getItem(THEME_KEY)||'a';}catch(e){}
   document.querySelectorAll('#seg-theme button').forEach(b=>b.onclick=()=>applyTheme(b.dataset.t));
   applyTheme(t);
   ['tl-list','tl-strip'].forEach(id=>{ const el=$(id);
-    if(el)el.onclick=ev=>{ const n=ev.target.closest('[data-i]'); if(n)tlScrollTo(TL[+n.dataset.i]); }; });
+    if(el)el.onclick=ev=>{ const n=ev.target.closest('[data-i]'); if(n)tlScrollTo(TL[+n.dataset.i]); };
+    if(el)el.onkeydown=ev=>{ if(ev.key!=='Enter'&&ev.key!==' ')return;
+      const n=ev.target.closest('[data-i]'); if(!n)return;
+      ev.preventDefault(); tlScrollTo(TL[+n.dataset.i]); }; });
   const md=$('modal'); if(md)md.onclick=ev=>{ if(ev.target===md)modalClose(); };
   document.addEventListener('keydown',ev=>{ if(ev.key==='Escape'){ modalClose(); allocFullClose(); } });
 })();
@@ -142,7 +155,7 @@ $('btn-start').onclick=()=>{
   $('board').style.display=''; $('act').style.display='';
   resetTL(); renderTimeline();
   const ts=$('tl-seed'); if(ts)ts.textContent=SEED;
-  card('info','球員誕生',`${S.year} 年春天，${POSN[S.pos]} <b class="hl">${S.name}</b> 加入 <b class="hl">${S.team}</b> 棒球隊。三年後的路，要自己選。<br><span style="color:var(--dim);font-size:12px">提示：22 歲前累積擲出 5 次「6」可覺醒隱藏素質。</span>`);
+  card('info','球員誕生',`${S.year} 年春天，${POSN[S.pos]} <b class="hl">${S.name}</b> 加入 <b class="hl">${S.team}</b> 棒球隊。雄心壯志，野心勃勃，他的世界正要因為棒球展開。<br><span style="color:var(--dim);font-size:12px">提示：22 歲前累積擲出 5 次「6」可覺醒隱藏素質。</span>`);
   startYear();
 };
 /* ================= PWA installability: manifest built at runtime as a Blob; icons are
@@ -165,7 +178,7 @@ $('btn-start').onclick=()=>{
 })();
 (function(){ const vb=document.getElementById('ver-badge'); if(vb)vb.textContent=APP_VER;
   const tv=document.getElementById('tl-ver'); if(tv)tv.textContent=APP_VER;
-  const lv=document.getElementById('lm-ver'); if(lv)lv.textContent=APP_VER; })();
+  const gv=document.getElementById('game-ver'); if(gv)gv.textContent=APP_VER; })();
 /* touch has no hover: tap the salary cell to reveal the full amount, tap again to close.
    Never dismisses on a timer — the user decides when it goes away. */
 (function(){ const cell=document.getElementById('bd-sal-cell'); if(!cell)return;

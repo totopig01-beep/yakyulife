@@ -1,9 +1,9 @@
-import {S} from '../core/state.js';
-import {R, ri, chance, clamp} from '../core/rng.js';
-import {ABL, POS_AB, DPN, DP_TH, DP_BAR, POS_ADJ_RUNS, DP_RANK} from '../data/abilities.js';
-import {LV} from '../data/teams.js';
-import {card, choose, board} from '../ui/dom.js';
-import {roleN, pitcherRole} from './season.js';
+import {S} from '../core/state.js?v=1.5.11';
+import {R, ri, chance, clamp} from '../core/rng.js?v=1.5.11';
+import {ABL, POS_AB, DPN, DP_TH, DP_BAR, POS_ADJ_RUNS, DP_RANK} from '../data/abilities.js?v=1.5.11';
+import {LV} from '../data/teams.js?v=1.5.11';
+import {card, choose, board} from '../ui/dom.js?v=1.5.11';
+import {roleN, pitcherRole} from './season.js?v=1.5.11';
 export function dpScore(p){ const a=S.ab;
   switch(p){
     case 'SS': return a.rng*0.5 + a.fld*0.3 + a.arm*0.2;   /* 游擊:範圍主導 */
@@ -20,14 +20,14 @@ export function dpScore(p){ const a=S.ab;
 export function posAdjLabel(p){ const v=POS_ADJ_RUNS[p]||0; return `薪資守位調整 ${v>0?'+':''}${v}／162 場`; }
 export function dpBar(){ /* 年輕球員吃潛力紅利,球團不急著拔守位 */
   const base=DP_BAR[S.lv]||0;
-  const disc=S.age<=21?7:S.age<=24?5:S.age<=26?2:0;
+  const disc=(S.age<=21?7:S.age<=24?5:S.age<=26?2:0)+(S.traits&&S.traits.favorite?3:0); /* 愛將:教練不急著拔你的守位 */
   return base-disc;
 }
 export function dpQual(p){
   if(p==='DH')return true;
   if(!DP_TH[p]||!DP_TH[p][S.lv])return true;   /* 非頂級聯盟不設限 */
   /* 年輕球員吃潛力紅利:門檻略降(球團給時間成長) */
-  const youthAdj = S.age<24?-3 : S.age<26?-1.5 : 0;
+  const youthAdj = (S.age<24?-3 : S.age<26?-1.5 : 0)+(S.traits&&S.traits.favorite?-3:0); /* 愛將:守位門檻永久紅利 */
   return dpScore(p) >= DP_TH[p][S.lv]+youthAdj;
 }
 export function dpList(){ /* 依守位難度掃描:內野手守內野序、外野手守外野序,選出守得動的(最高階在前) */
@@ -45,11 +45,15 @@ export function dposReview(cont){
       return a.fld>=bar-6 && a.cat>=bar-4 && a.arm>=bar-2; };
     if(S.dpos==='C'){
       if(cOk()){ cont(); return; }
+      const a=S.ab;
+      /* 依接球、配球、臂力的當下能力值，顯示數值最低的一環。 */
+      const issue=[['漏球',a.fld],['配球',a.cat],['阻殺率',a.arm]]
+        .sort((x,y)=>x[1]-y[1])[0][0];
       const opts=[];
       if(dpQual('1B'))opts.push({t:'移防 一壘手',main:true,s:posAdjLabel('1B'),
         f:()=>{S.dpos='1B';card('info','守位調整','捕手裝備收進置物櫃——新球季改守<b class="hl">一壘</b>。');cont();}});
       opts.push({t:'轉任 指定打擊',main:!opts.length,s:posAdjLabel('DH'),
-        f:()=>{S.dpos='DH';card('info','守位調整','阻殺率成了聯盟笑話，球團決定讓你專心打擊——<b class="hl">DH</b>。');cont();}});
+        f:()=>{S.dpos='DH';card('info','守位調整',`${issue}成了聯盟笑話，球團決定讓你專心打擊——<b class="hl">DH</b>。`);cont();}});
       choose(`守位會議：教練團已經不敢讓你蹲捕（${LV[S.lv].n}標準）`,opts); return;
     }
     if(cOk()){ /* 守備練回來了,可以回鍋蹲捕 */
@@ -73,7 +77,9 @@ export function dposReview(cont){
     }
     S.role=nr;
     if(old&&old!==nr){
-      card('info','定位調整',`球團季末評估你的體力狀況，新球季將你的角色調整為 <b class="hl">${roleN(nr)}</b>。`); }
+      /* 中繼與終結者互換看球季成績；先發與牛棚間的調整才看體力。 */
+      const basis=old!=='SP'&&nr!=='SP'?'成績':'體力';
+      card('info','定位調整',`教練團評估你的${basis}，將你登錄為 <b class="hl">${roleN(nr)}</b>。`); }
     else if(!old){
       card('info','投手定位',`教練團評估你的體力，將你登錄為 <b class="hl">${roleN(nr)}</b>。`); }
     cont(); return;
@@ -124,25 +130,26 @@ export function ovr(){
 }
 export function playerType(){
   const a=S.ab;
+  const decliningVeteran=S.stage==='PRO'&&(S.age-(S.traits.disc?2:0))>=32;
   if(S.traits.onetool&&S.toolRole)return S.toolRole+'工具人';
   if(S.pos==='P'){
     const m=Math.max(a.vel,a.ctl,a.brk);
-    if(m<52)return '潛力股';
+    if(m<52)return decliningVeteran?'老將':'潛力股';
     if(a.sta>=m&&a.sta>=62)return '工作馬';
-    if(m===a.vel)return '火球男'; if(m===a.brk)return '變化球藝師'; return '控球大師';
+    if(m===a.vel)return '火球男'; if(m===a.brk)return '魔術師'; return '人體Kzone';
   }
   if(S.pos==='C'){ const rest=Math.max(a.con,a.pow,a.spd,a.eye,a.rng,a.fld,a.arm);
     if(a.cat>=58&&rest<=a.cat-8)return '配球皇帝'; }
   const dv=S.pos==='C'?(a.rng+a.fld+a.cat)/3:(a.rng+a.fld+a.arm)/3;
-  const cand=[['巨炮型',a.pow],['安打製造機',a.con],['選球大師',a.eye],['飛毛腿',a.spd],['守備至上',dv]];
+  const cand=[['巨炮型',a.pow],['安打製造機',a.con],['選球大師',a.eye],['飛毛腿',a.spd],['守備達人',dv]];
   cand.sort((x,y)=>y[1]-x[1]);
-  if(cand[0][1]<52)return '潛力股';
+  if(cand[0][1]<52)return decliningVeteran?'老將':'潛力股';
   if(cand[0][1]-cand[1][1]<=3&&cand[0][1]>=60)return '全能型';
   return cand[0][0];
 }
-export function abCost(k){ /* 目前這一級要花幾點(須與 addAb 成本公式一致) */
+export function abCost(k){ /* 目前這一級要花幾點(須與 addAb 成本公式一致，含體力的例外) */
   const cur=S.ab[k], pk=(S.pot&&S.pot[k])||62, isP=S.pos==='P';
-  let c=isP?(cur>=66?7:cur>=58?4:cur>=50?2:1):(cur>=72?3:cur>=64?2:1);
+  let c=(isP&&k!=='sta')?(cur>=66?7:cur>=58?4:cur>=50?2:1):(cur>=72?3:cur>=64?2:1);
   if(cur>=pk)c*=isP?4:3; return c;
 }
 export function normalizeAbCarry(k){
@@ -167,8 +174,16 @@ export function addAb(k,v){ if(!(k in S.ab))return 0;
   const pk=(S&&S.pot&&S.pot[k])||62;
   const isP=S&&S.pos==='P';
   while(bud>0&&cur<80){
-    let cost=isP?(cur>=66?7:cur>=58?4:cur>=50?2:1)      /* 投手只有4項,養成成本最陡 */
-              :(cur>=72?3:cur>=64?2:1);                    /* 野手9項,中高段變貴 */
+    /* v1.5.9 體力單獨改用野手曲線。體力不是球威，卻跟球速/控球/變化球吃同一條
+       最陡的成本(66 以上每點 7)，而先發必須把體力墊到 52 才站得上輪值——那些點數
+       本來該進球威。實測結果是先發成為唯一一條「實際峰值低於自身潛力」的路線
+       (峰值 − 潛力 = −3.3；後援 0.0、捕手 +2.3、一壘 +3.7)，天賦再好也轉不成分數：
+       名人堂率在四個運氣分層是 12/12/9/15%，完全沒有梯度。
+       只動體力這一項(球威成本與超潛力 ×4 都不碰)之後：−3.3 → −1.3，
+       名人堂率 15/14/15/55%——普通運氣只動 3 個百分點，但「天賦好又健康」
+       從 15% 回到 55%，跟捕手(54)、游擊(52) 對齊。後援幾乎不受影響(本來就不練體力)。 */
+    let cost=(isP&&k!=='sta')?(cur>=66?7:cur>=58?4:cur>=50?2:1)  /* 投手球威,養成成本最陡 */
+              :(cur>=72?3:cur>=64?2:1);                          /* 野手9項與投手體力 */
     if(cur>=pk)cost*=isP?4:3; /* 天花板之上:投手×4、野手×3 */
     if(bud>=cost){bud-=cost;cur++;} else break; }
   if(cur>=80) S.lastOverflow=bud; /* 滿 80 後，剩下的點數才是真正的溢出 */
@@ -194,7 +209,31 @@ export function addAbStat(k,amt){
   if(bud>0) S.pendStat=(S.pendStat||0)+bud;
   return gained;
 }
-export function statBonus(pts,out){ /* 能力已達潛力上限,獎勵轉成當季成績加成(下次結算套用) */
+export function statBonus(pts,out){ /* 正向獎勵無法再轉成能力時，改為當季成績加成（下次結算套用）。 */
   S.pendStat=(S.pendStat||0)+pts;
-  out.push(`<span class="up">狀態火燙（本季成績加成 ×${pts}）</span>`);
+  out.push(statBonusTxt(pts));
+}
+/* 全遊戲「本季成績加成」的統一文案：正值為狀態火燙、負值為狀態低迷，格式一律
+   「狀態火燙（本季成績加成 +N）」，避免各處出現 ×N／+N／純文字等不一致寫法。 */
+export function statBonusTxt(pts){
+  const n=Math.round(pts);
+  if(n>=0)return `<span class="up">狀態火燙（本季成績加成 +${n}）</span>`;
+  return `<span class="dn">狀態低迷（本季成績加成 −${Math.abs(n)}）</span>`;
+}
+/* 全遊戲「能力成長」的統一文案。能力數值的增減寫 +N／−N 不加單位(畫面上到處都是，加單位
+   反而囉嗦)。事件卡不會告訴玩家這次給了幾點，而養成成本表會讓投入點數與實際升的級數對不
+   起來(投手 66 以上每級 7 點、突破潛力上限後成本再 ×3~×4)，所以只在兩者不相等時才補上
+   「加了 N 點」——沒補的時候就代表 1 點換 1 級，不必多寫。進度槽的餘數刻意不顯示，太吵。
+   負向扣值是 1:1 不吃成本表，直接寫 −N。 */
+export function abGainTxt(k,pts,levels){
+  const name=ABL[k]||k;
+  if(pts<0||levels<0){
+    const d=Math.abs(Math.round(levels));
+    return d?`<b class="dn">${name} −${d}</b>`:`${name} 無變化`;
+  }
+  const p=Math.round(pts);
+  if(levels>0)return p===levels
+    ?`${name} <span class="up">+${levels}</span>`
+    :`加了 ${p} 點，${name} <span class="up">+${levels}</span>`;
+  return `加了 ${p} 點，${name} <span class="dn">未升級</span>`;
 }
