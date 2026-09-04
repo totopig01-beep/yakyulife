@@ -1,21 +1,21 @@
-import {S, stepQ, nextStep, stageLabel} from '../core/state.js?v=1.5.11';
-import {R, ri, chance, clamp} from '../core/rng.js?v=1.5.11';
-import {ABL, POS_AB} from '../data/abilities.js?v=1.5.11';
-import {LV, PATHS, teamNick} from '../data/teams.js?v=1.5.11';
-import {AMA_ANNUAL} from '../data/economy.js?v=1.5.11';
-import {card, choose, board, divider} from '../ui/dom.js?v=1.5.11';
-import {tlNote, tlPush, tlRestage} from '../ui/timeline.js?v=1.5.11';
-import {allocUI} from '../ui/alloc.js?v=1.5.11';
-import {addAb, ovr, dposReview, statBonusTxt} from '../engine/ability.js?v=1.5.11';
-import {rollInjury, tjCap} from '../engine/injury.js?v=1.5.11';
-import {isMrTeamEligible} from '../engine/tenure.js?v=1.5.11';
-import {amateurSeason, proSeason, slgOf, currentSalaryRating, baseballERA, baseballWHIP, seasonGrade} from '../engine/season.js?v=1.5.11';
-import {championshipChance} from '../engine/championship.js?v=1.5.11';
-import {buyoutRemaining, contractAnnual, contractMarketProfile, controlledAnnual, crossOffers, daibaFarewell, extensionOffer, faFlow, fmtMoney, handleDemotion, levelMinAnnual, makeContract, makeOffers, offseasonTradeCheck, pickOfferUI, signTo, teamChampRate} from '../engine/contract.js?v=1.5.11';
-import {drawEvents, removeTrait, checkChampionTrait} from './events.js?v=1.5.11';
-import {loveEvent} from './love.js?v=1.5.11';
-import {runDraft, pathChoiceHS, pathChoiceU4, advance} from '../engine/draft.js?v=1.5.11';
-import {endGame} from '../ui/retire.js?v=1.5.11';
+import {S, stepQ, nextStep, stageLabel} from '../core/state.js?v=1.5.12';
+import {R, ri, chance, clamp} from '../core/rng.js?v=1.5.12';
+import {ABL, POS_AB} from '../data/abilities.js?v=1.5.12';
+import {LV, PATHS, teamNick} from '../data/teams.js?v=1.5.12';
+import {AMA_ANNUAL} from '../data/economy.js?v=1.5.12';
+import {card, choose, board, divider} from '../ui/dom.js?v=1.5.12';
+import {tlNote, tlPush, tlRestage} from '../ui/timeline.js?v=1.5.12';
+import {allocUI} from '../ui/alloc.js?v=1.5.12';
+import {addAb, ovr, dposReview, statBonusTxt} from '../engine/ability.js?v=1.5.12';
+import {rollInjury, tjCap} from '../engine/injury.js?v=1.5.12';
+import {isMrTeamEligible} from '../engine/tenure.js?v=1.5.12';
+import {amateurSeason, proSeason, slgOf, currentSalaryRating, baseballERA, baseballWHIP, seasonGrade} from '../engine/season.js?v=1.5.12';
+import {championshipChance} from '../engine/championship.js?v=1.5.12';
+import {buyoutRemaining, contractAnnual, contractMarketProfile, controlledAnnual, crossOffers, daibaFarewell, extensionOffer, faFlow, fmtMoney, handleDemotion, levelMinAnnual, makeContract, makeOffers, offseasonTradeCheck, pickOfferUI, returnHomeSign, signTo, teamChampRate} from '../engine/contract.js?v=1.5.12';
+import {drawEvents, removeTrait, checkChampionTrait} from './events.js?v=1.5.12';
+import {loveEvent} from './love.js?v=1.5.12';
+import {runDraft, pathChoiceHS, pathChoiceU4, advance} from '../engine/draft.js?v=1.5.12';
+import {endGame} from '../ui/retire.js?v=1.5.12';
 /* ================= 年度流程 ================= */
 export function startYear(){ S.yearOutsideIncome=0; stepQ.length=0; stepQ.push(phasePre,phaseMid,phaseEnd); divider(`${S.year} 年 · ${S.age} 歲 · ${stageLabel()}`); tlPush(); nextStep(); }
 /* ---------- 季初 ---------- */
@@ -127,8 +127,9 @@ export function phasePre(){
     /* 旅外老將(衰退期):放棄現有合約,落葉歸根返台;ovr<30(真的打不動)不給 */
     if(S.org!=='CPBL'&&ovr()>=LV.CPBL2.min){
       oldOpts.push({t:'放棄合約，落葉歸根',s:'狀態不再，仍想把最後的球打給家鄉看',f:()=>{
-        card('good','落葉歸根',`狀態雖然已經不在巔峰，但家鄉球隊仍然向你招手——他們要的不是你的實力，是你在國際賽、在海外聯賽建立起的回憶。你決定放棄合約，回家，把職業生涯最後幾年奉獻給大家。`);
-        signTo('CPBL','CPBL1'); tlRestage(); afterAsk(); /* spring move: this season is already CPBL */
+        const from=S.org;
+        returnHomeSign(from,'CPBL','CPBL1',`狀態雖然已經不在巔峰，但家鄉球隊仍然向你招手——他們要的不是你的實力，是你在國際賽、在海外聯賽建立起的回憶。你決定放棄合約，回家，把職業生涯最後幾年奉獻給大家。`);
+        tlRestage(); afterAsk(); /* spring move: this season is already CPBL */
       }});
     }
     oldOpts.push({t:'召開引退記者會',warn:true,s:'結束選手生涯',f:()=>{buyoutRemaining(0.7,true);daibaFarewell(()=>endGame('功成身退，於 '+S.year+' 年宣布引退。'));}});
